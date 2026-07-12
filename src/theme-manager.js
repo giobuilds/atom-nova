@@ -44,10 +44,12 @@ module.exports = class ThemeManager {
       this.lessSourcesByRelativeFilePath = {};
       this.importedFilePathsByRelativeImportPath = {};
     } else {
+      // Fall back to empty maps if snapshot was generated without
+      // prebuild-less-cache (avoids TypeError and a blank window).
       this.lessSourcesByRelativeFilePath =
-        snapshotAuxiliaryData.lessSourcesByRelativeFilePath;
+        snapshotAuxiliaryData.lessSourcesByRelativeFilePath || {};
       this.importedFilePathsByRelativeImportPath =
-        snapshotAuxiliaryData.importedFilePathsByRelativeImportPath;
+        snapshotAuxiliaryData.importedFilePathsByRelativeImportPath || {};
     }
   }
 

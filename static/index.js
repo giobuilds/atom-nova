@@ -103,9 +103,11 @@
         profileStartup(Date.now() - startTime);
       } else {
         StartupTime.addMarker('window:setup-window:start');
-        setupWindow().then(() => {
-          StartupTime.addMarker('window:setup-window:end');
-        });
+        setupWindow()
+          .then(() => {
+            StartupTime.addMarker('window:setup-window:end');
+          })
+          .catch(handleSetupError);
         setLoadTime(Date.now() - startTime);
       }
     } catch (error) {

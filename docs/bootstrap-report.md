@@ -164,6 +164,37 @@ Launch: `open "out/Atom Dev.app"`
 
 ---
 
+## Blank window (fixed 2026-07-12)
+
+### Symptom
+Packaged app opened a blank window. Dev mode (`--dev --resource-path=…`) progressed further.
+
+### Error (packaged only)
+```
+Uncaught (in promise) TypeError: Cannot read property
+  'node_modules/about/styles/about.less' of undefined
+source: <embedded>
+```
+
+### Cause
+Snapshot was re-generated in isolation after a failed full build, **without** re-running `prebuild-less-cache` in the same process.  
+`CONFIG.snapshotAuxiliaryData` was therefore `{}`, so `lessSourcesByRelativeFilePath` was missing from the snapshot.  
+`ThemeManager` assigned `undefined` and crashed on first style lookup.
+
+### Fix
+1. **Full rebuild** so less prebuild runs before snapshot:  
+   `./script/with-modern-env ./script/build --no-bootstrap`
+2. **Defensive fallbacks** in `src/theme-manager.js` if less maps are missing.
+3. **`.catch(handleSetupError)`** on `setupWindow()` in `static/index.js` so init failures open DevTools.
+
+### Rule
+Never run `generateStartupSnapshot` alone in a fresh Node process. Always build via `script/build` (or re-run prebuild-less-cache first).
+
+### Retest
+No `about.less` / `TypeError`; natives load from asar.unpacked; metrics “Opt out reported.”
+
+---
+
 ## Checklist mapping
 
 | Migration item | Status after this work |
@@ -171,8 +202,8 @@ Launch: `open "out/Atom Dev.app"`
 | Node version for builds | **Wrapper pins Node 16** |
 | Native modules / build tools | **Unblocked** via `bootstrap-modern` |
 | apm backend | **Runs** with `ATOM_ELECTRON_URL` |
-| Launch validation | **App bundle built**; smoke-test manually |
+| Launch validation | **Packaged UI loads** after full rebuild + theme-manager harden |
 
 ---
 
-*Last updated: 2026-07-12 — bootstrap + build green with modern wrappers.*
+*Last updated: 2026-07-12 — bootstrap, build, and blank-window fix.*
