@@ -44,8 +44,15 @@ module.exports = function(packagedAppPath) {
         baseDirPath,
         requiredModulePath
       );
+      // Node 14+ allows require('node:fs') etc. electron-link treats those as
+      // filesystem paths and crashes (ENOENT open 'node:stream'). Exclude them.
+      const isNodeProtocolBuiltin =
+        typeof requiredModulePath === 'string' &&
+        requiredModulePath.startsWith('node:');
+
       return (
         requiredModulePath.endsWith('.node') ||
+        isNodeProtocolBuiltin ||
         coreModules.has(requiredModulePath) ||
         requiringModuleRelativePath.endsWith(
           path.join('node_modules/xregexp/xregexp-all.js')
@@ -84,6 +91,20 @@ module.exports = function(packagedAppPath) {
         ) ||
         requiredModuleRelativePath.startsWith(
           path.join('..', 'node_modules', 'typescript-simple')
+        ) ||
+        // Modern deps use private fields / node: protocol that electron-link's
+        // acorn cannot parse. Load them at runtime instead of snapshotting.
+        requiredModuleRelativePath.startsWith(
+          path.join('..', 'node_modules', 'undici')
+        ) ||
+        requiredModuleRelativePath.includes(
+          path.join('node_modules', 'undici')
+        ) ||
+        requiredModuleRelativePath.startsWith(
+          path.join('..', 'node_modules', 'encoding-sniffer')
+        ) ||
+        requiredModuleRelativePath.includes(
+          path.join('node_modules', 'encoding-sniffer')
         ) ||
         requiredModuleRelativePath.endsWith(
           path.join(

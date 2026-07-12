@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# Run any command with the AtomNova modern toolchain environment.
+# Usage: script/with-modern-env ./script/build --no-bootstrap
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC1091
+. "$SCRIPT_DIR/lib/modern-env.sh"
+
+# Patch gyp if script/apm node_modules already exist (no-op if missing)
+atomnova_patch_node_gyp "$SCRIPT_DIR/.." || true
+
+exec "$@"

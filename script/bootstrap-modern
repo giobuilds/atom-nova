@@ -1,0 +1,140 @@
+#!/usr/bin/env bash
+# AtomNova bootstrap for modern host toolchains (macOS 13+ / current Linux).
+#
+# Stock ./script/bootstrap assumes Node ~12–16 era + Python with distutils +
+# atom.io Electron headers. This wrapper applies the environment and patches
+# documented in docs/bootstrap-report.md, then runs the same install steps.
+#
+# Usage:
+#   ./script/bootstrap-modern
+#   ./script/bootstrap-modern --ci
+#
+# Then build with:
+#   ./script/with-modern-env ./script/build --no-bootstrap
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+cd "$REPO_ROOT"
+
+# shellcheck disable=SC1091
+. "$SCRIPT_DIR/lib/modern-env.sh"
+
+if [ "${1:-}" = "--ci" ] || [ "${CI:-}" = "true" ]; then
+  export CI=true
+  echo "CI mode enabled"
+fi
+
+echo ""
+echo "==> AtomNova modern bootstrap"
+echo "    repo: $REPO_ROOT"
+echo ""
+
+# --- Step 1: stock verify + script dependencies (host Node) ------------------
+# Run bootstrap pieces via Node so we reuse Atom's install helpers.
+node <<'NODE'
+'use strict';
+const path = require('path');
+process.chdir(path.join(__dirname));
+
+const CONFIG = require('./script/config');
+const cleanDependencies = require('./script/lib/clean-dependencies');
+const deleteMsbuildFromPath = require('./script/lib/delete-msbuild-from-path');
+const dependenciesFingerprint = require('./script/lib/dependencies-fingerprint');
+const installScriptDependencies = require('./script/lib/install-script-dependencies');
+const verifyMachineRequirements = require('./script/lib/verify-machine-requirements');
+
+const ci = process.argv.includes('--ci') || process.env.CI === 'true';
+
+process.on('unhandledRejection', e => {
+  console.error(e.stack || e);
+  process.exit(1);
+});
+
+verifyMachineRequirements(ci);
+if (dependenciesFingerprint.isOutdated()) {
+  console.log('Dependencies fingerprint outdated; cleaning…');
+  cleanDependencies();
+}
+if (process.platform === 'win32') deleteMsbuildFromPath();
+
+console.log('Installing script dependencies…');
+installScriptDependencies(ci);
+console.log('Script dependencies installed.');
+NODE
+
+# Patch gyp that just landed under script/node_modules
+echo "Patching node-gyp (script) for Python 3.11…"
+atomnova_patch_node_gyp "$REPO_ROOT/script"
+
+# --- Step 2: install apm, targeting apm's bundled Node 12 ABI ----------------
+echo "Installing apm (natives targeted at Node 12.14.1)…"
+(
+  # apm embeds Node 12.14.1; first compile pass must match that ABI
+  export npm_config_target=12.14.1
+  export npm_config_arch="${npm_config_arch:-$(node -p "process.arch")}"
+  export npm_config_disturl=https://nodejs.org/dist
+  export npm_config_runtime=node
+  export npm_config_build_from_source=true
+
+  node <<'NODE'
+'use strict';
+const installApm = require('./script/lib/install-apm');
+const ci = process.argv.includes('--ci') || process.env.CI === 'true';
+process.on('unhandledRejection', e => {
+  console.error(e.stack || e);
+  process.exit(1);
+});
+installApm(ci);
+NODE
+)
+
+# Nested gyp under apm (used by postinstall rebuild with bundled Node)
+echo "Patching node-gyp (apm) for Python 3.11…"
+atomnova_patch_node_gyp "$REPO_ROOT/apm"
+
+# If apm postinstall left natives half-built, rebuild oniguruma with apm's node
+APM_NODE="$REPO_ROOT/apm/node_modules/atom-package-manager/bin/node"
+APM_GYP="$REPO_ROOT/apm/node_modules/atom-package-manager/node_modules/npm/node_modules/node-gyp/bin/node-gyp.js"
+ONIG="$REPO_ROOT/apm/node_modules/atom-package-manager/node_modules/oniguruma"
+if [ -x "$APM_NODE" ] && [ -f "$APM_GYP" ] && [ -d "$ONIG" ] && [ ! -f "$ONIG/build/Release/onig_scanner.node" ]; then
+  echo "Rebuilding oniguruma with apm bundled Node…"
+  (cd "$ONIG" && "$APM_NODE" "$APM_GYP" rebuild) || true
+fi
+
+# --- Step 3: apm --version ---------------------------------------------------
+echo "Checking apm…"
+export ATOM_RESOURCE_PATH="$REPO_ROOT"
+"$REPO_ROOT/apm/node_modules/atom-package-manager/bin/apm" --version
+
+# --- Step 4: root app dependencies (Electron headers via ATOM_ELECTRON_URL) --
+# Clear Node-12 targeting so apm uses Electron runtime from package.json
+unset npm_config_target npm_config_runtime npm_config_disturl npm_config_build_from_source || true
+
+echo "Installing application dependencies (apm install)…"
+# Ensure electron URL is set for apm
+export ATOM_ELECTRON_URL="${ATOM_ELECTRON_URL:-https://www.electronjs.org/headers}"
+node <<'NODE'
+'use strict';
+const CONFIG = require('./script/config');
+const runApmInstall = require('./script/lib/run-apm-install');
+const ci = process.argv.includes('--ci') || process.env.CI === 'true';
+process.on('unhandledRejection', e => {
+  console.error(e.stack || e);
+  process.exit(1);
+});
+runApmInstall(CONFIG.repositoryRootPath, ci);
+NODE
+
+# --- Step 5: fingerprint -----------------------------------------------------
+node <<'NODE'
+'use strict';
+require('./script/lib/dependencies-fingerprint').write();
+console.log('Dependencies fingerprint written.');
+NODE
+
+echo ""
+echo "==> Modern bootstrap complete."
+echo "    Build with:  ./script/with-modern-env ./script/build --no-bootstrap"
+echo ""
