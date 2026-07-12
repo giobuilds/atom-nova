@@ -1,15 +1,15 @@
 {
-  "name": "atom",
-  "productName": "Atom",
+  "name": "atomnova-editor",
+  "productName": "AtomNova",
   "version": "1.65.0-dev",
-  "description": "A hackable text editor for the 21st Century.",
+  "description": "Hackable. Fast. Yours. AtomNova is a community-driven revival of the Atom text editor. We are modernizing the codebase while preserving its legendary hackability.",
   "main": "./src/main-process/main.js",
   "repository": {
     "type": "git",
-    "url": "https://github.com/atom/atom.git"
+    "url": "https://github.com/gdick-crypto/atom-nova"
   },
   "bugs": {
-    "url": "https://github.com/atom/atom/issues"
+    "url": "https://github.com/gdick-crypto/atom-nova/issues"
   },
   "license": "MIT",
   "electronVersion": "11.5.0",
