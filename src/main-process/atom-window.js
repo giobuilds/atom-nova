@@ -55,10 +55,11 @@ module.exports = class AtomWindow extends EventEmitter {
         // (Ref: https://github.com/atom/atom/pull/12696#issuecomment-290496960)
         disableBlinkFeatures: 'Auxclick',
         nodeIntegration: true,
+        // Electron 12+ defaults contextIsolation to true, which hides Node from
+        // page scripts (`require is not defined`). Atom still boots from
+        // renderer Node + remote; restore the pre-Electron-12 model for now.
+        contextIsolation: false,
         webviewTag: true,
-
-        // TodoElectronIssue: remote module is deprecated https://www.electronjs.org/docs/breaking-changes#default-changed-enableremotemodule-defaults-to-false
-        enableRemoteModule: true,
         // node support in threads
         nodeIntegrationInWorker: true
       },
@@ -77,6 +78,14 @@ module.exports = class AtomWindow extends EventEmitter {
     const BrowserWindowConstructor =
       settings.browserWindowConstructor || BrowserWindow;
     this.browserWindow = new BrowserWindowConstructor(options);
+
+    // Electron 14+: built-in remote was removed; @electron/remote must be
+    // enabled per WebContents before the renderer can use it.
+    try {
+      require('@electron/remote/main').enable(this.browserWindow.webContents);
+    } catch (error) {
+      console.error('Failed to enable @electron/remote for window:', error);
+    }
 
     Object.defineProperty(this.browserWindow, 'loadSettingsJSON', {
       get: () =>

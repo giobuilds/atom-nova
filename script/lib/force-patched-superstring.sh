@@ -37,12 +37,15 @@ atomnova_force_one_native() {
   rm -rf "$root_dest"
   echo "Installing patched $package_name → node_modules/$npm_name"
   mkdir -p "$root_dest"
+  # Prefer a real directory copy (not a symlink) so electron-packager with
+  # derefSymlinks:false still ships the package into the asar tree.
+  # Include build/ when present so rebuilt context-aware .node files package.
   if command -v rsync >/dev/null 2>&1; then
-    rsync -a --exclude node_modules --exclude build --exclude package-lock.json \
+    rsync -a --exclude node_modules --exclude package-lock.json \
       "$fork/" "$root_dest/"
   else
     tar -C "$fork" \
-      --exclude=node_modules --exclude=build --exclude=package-lock.json \
+      --exclude=node_modules --exclude=package-lock.json \
       -cf - . | tar -C "$root_dest" -xf -
   fi
 

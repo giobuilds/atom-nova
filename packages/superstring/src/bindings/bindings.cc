@@ -21,4 +21,11 @@ void Init(Local<Object> exports) {
   TextBufferSnapshotWrapper::init();
 }
 
-NODE_MODULE(superstring, Init)
+static void superstring_atomnova_register(
+    v8::Local<v8::Object> exports,
+    v8::Local<v8::Value> module,
+    v8::Local<v8::Context> context,
+    void* priv) {
+  Init(exports);
+}
+NODE_MODULE_CONTEXT_AWARE(superstring, superstring_atomnova_register)

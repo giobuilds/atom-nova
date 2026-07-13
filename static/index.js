@@ -4,6 +4,11 @@
   const startWindowTime = Date.now();
 
   const electron = require('electron');
+  // Electron 14 removed the built-in remote module. Expose @electron/remote as
+  // electron.remote so core and community packages keep working unchanged.
+  if (!electron.remote) {
+    electron.remote = require('@electron/remote');
+  }
   const path = require('path');
   const Module = require('module');
   const getWindowLoadSettings = require('../src/get-window-load-settings');

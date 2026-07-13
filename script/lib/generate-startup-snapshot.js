@@ -136,6 +136,21 @@ module.exports = function(packagedAppPath) {
         requiredModuleRelativePath.endsWith(
           path.join('node_modules', 'superstring', 'index.js')
         ) ||
+        // Electron 14 remote shim — must not be snapshotted (uses Node fs/ipc).
+        requiredModuleRelativePath.includes(
+          path.join('node_modules', '@electron', 'remote')
+        ) ||
+        requiredModuleRelativePath.startsWith(
+          path.join('..', 'node_modules', '@electron', 'remote')
+        ) ||
+        // Never snapshot the electron *npm* package (path helper). require('electron')
+        // must resolve to the Electron builtin, not node_modules/electron.
+        requiredModuleRelativePath.endsWith(
+          path.join('node_modules', 'electron', 'index.js')
+        ) ||
+        requiredModuleRelativePath ===
+          path.join('..', 'node_modules', 'electron', 'index.js') ||
+
         requiredModuleRelativePath.endsWith(
           path.join('node_modules', 'temp', 'lib', 'temp.js')
         ) ||

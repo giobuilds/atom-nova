@@ -134,6 +134,10 @@ unset npm_config_ignore_scripts
 . "$SCRIPT_DIR/lib/force-patched-superstring.sh"
 atomnova_force_patched_superstring "$REPO_ROOT"
 
+# Electron 12+ forbids non-context-aware NODE_MODULE natives in the renderer.
+echo "Patching natives for NODE_MODULE_CONTEXT_AWARE…"
+node "$SCRIPT_DIR/lib/patch-natives-context-aware.js" "$REPO_ROOT"
+
 echo "Rebuilding native modules for Electron ${ELECTRON_VERSION:-}…"
 # Rebuild against Electron (not host Node). apm sets target from package.json.
 export ATOM_RESOURCE_PATH="$REPO_ROOT"

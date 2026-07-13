@@ -22,6 +22,13 @@ void InitAll(Local<Object> exports) {
   TreeCursor::Init(exports);
 }
 
-NODE_MODULE(tree_sitter_runtime_binding, InitAll)
+static void tree_sitter_runtime_binding_atomnova_register(
+    v8::Local<v8::Object> exports,
+    v8::Local<v8::Value> module,
+    v8::Local<v8::Context> context,
+    void* priv) {
+  InitAll(exports);
+}
+NODE_MODULE_CONTEXT_AWARE(tree_sitter_runtime_binding, tree_sitter_runtime_binding_atomnova_register)
 
 }  // namespace node_tree_sitter

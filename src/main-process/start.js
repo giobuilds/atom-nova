@@ -13,6 +13,14 @@ const StartupTime = require('../startup-time');
 
 StartupTime.setStartTime();
 
+// Electron 14+: initialize @electron/remote before any BrowserWindow is created.
+// Must run once in the main process; each window also needs .enable(webContents).
+try {
+  require('@electron/remote/main').initialize();
+} catch (error) {
+  console.error('Failed to initialize @electron/remote:', error);
+}
+
 module.exports = function start(resourcePath, devResourcePath, startTime) {
   global.shellStartTime = startTime;
   StartupTime.addMarker('main-process:start');
@@ -37,7 +45,8 @@ module.exports = function start(resourcePath, devResourcePath, startTime) {
     }
   });
 
-  // TodoElectronIssue this should be set to true before Electron 12 - https://github.com/electron/electron/issues/18397
+  // Electron 14 always reuses renderer processes; keep the assignment for older
+  // Electron builds during the upgrade ladder (no-op / deprecated on 14+).
   app.allowRendererProcessReuse = false;
 
   app.commandLine.appendSwitch('enable-experimental-web-platform-features');

@@ -53,6 +53,10 @@ open "out/Atom Dev.app"   # still named Atom Dev (channel-based)
 2. **Blank window** — caused by regenerating snapshot **without** `prebuild-less-cache` in the same process → missing `lessSourcesByRelativeFilePath` → ThemeManager TypeError on `about.less`.  
    - Fix: always full `script/build`; defensive `|| {}` in `src/theme-manager.js`; `.catch(handleSetupError)` on `setupWindow()` in `static/index.js`.  
    - **Rule:** never call `generateStartupSnapshot` alone in a fresh Node process.
+3. **Dock icon but no window (Electron 14)** — three stacked issues after the Electron 14 upgrade:
+   - `contextIsolation` defaults to `true` → `require is not defined` in `static/index.js`. Fix: `contextIsolation: false` in `src/main-process/atom-window.js` (temporary; full isolation is still the security epic).
+   - Built-in `electron.remote` removed → use `@electron/remote` (init in main `start.js`, `enable(webContents)` per window, polyfill `electron.remote` in renderer).
+   - Non-context-aware `NODE_MODULE` natives blocked in renderer → `script/lib/patch-natives-context-aware.js` + rebuild (wired into `bootstrap-modern`). Vendored packages (`superstring`, `watcher`, `tree-sitter`) are already patched in-tree.
 
 ### Docs / planning
 
@@ -141,8 +145,11 @@ Suggested order:
 | `atom.io/download/electron` dead | `ATOM_ELECTRON_URL=https://www.electronjs.org/headers` |
 | Snapshot without less prebuild | Full `script/build` only |
 | `superstring@2.4.4` vs Electron 14+ | Vendored `packages/superstring` with `GetBackingStore` patch (`2.4.4-atomnova.1`) |
+| Non-context-aware natives on Electron 12+ | `node script/lib/patch-natives-context-aware.js` then rebuild natives |
+| `electron.remote` on Electron 14+ | `@electron/remote` dependency + main/renderer wiring |
 | `name === 'atom'` in main/module-cache | Dev repo detect may be wrong for `atomnova-editor` |
 | Packaged vs dev | Packaged uses snapshot; `--dev --resource-path=$PWD` skips it |
+| Nested superstring without `.node` | After rebuild, copy `packages/superstring` **including** `build/` into nested installs (force-patched script excludes `build/` on purpose) |
 
 ---
 

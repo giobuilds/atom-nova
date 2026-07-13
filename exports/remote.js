@@ -1,3 +1,4 @@
+// Electron 14+: remote is polyfilled onto electron in static/index.js.
 module.exports = require('electron').remote;
 
 const Grim = require('grim');

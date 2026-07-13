@@ -1,3 +1,5 @@
+// remote is polyfilled onto electron in static/index.js for Electron 14+.
+// Do not require('@electron/remote') here — this file is in the startup snapshot.
 const { ipcRenderer, remote, shell } = require('electron');
 const ipcHelpers = require('./ipc-helpers');
 const { Emitter, Disposable } = require('event-kit');

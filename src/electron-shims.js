@@ -1,6 +1,14 @@
 const path = require('path');
 const electron = require('electron');
 
+// Electron 14+: remote must already be polyfilled in static/index.js before
+// this module runs (snapshot-safe — do not require @electron/remote here).
+if (!electron.remote) {
+  throw new Error(
+    'electron.remote is missing; @electron/remote polyfill did not run'
+  );
+}
+
 const dirname = path.dirname;
 path.dirname = function(path) {
   if (typeof path !== 'string') {
