@@ -109,9 +109,10 @@ Suggested order:
    - Inventory `remote` usage (core + packages) and native modules  
 
 3. **Security architecture**  
-   - Replace `electron.remote` with IPC + **preload**  
+   - **Inventory done:** `docs/remote-ipc-inventory.md` (kill-list P0–P4, existing IPC map)  
+   - Replace `electron.remote` with IPC + **preload** (start at P0 load-settings inject)  
    - `contextIsolation: true`, `nodeIntegration: false`  
-   - Temporary `@electron/remote` only if needed as a bridge with a kill list  
+   - Temporary `@electron/remote` until P4; then remove
 
 4. **Native modules + CI**  
    - Rebuild against each Electron ABI  
