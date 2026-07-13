@@ -138,6 +138,10 @@ atomnova_force_patched_superstring "$REPO_ROOT"
 echo "Patching natives for NODE_MODULE_CONTEXT_AWARE…"
 node "$SCRIPT_DIR/lib/patch-natives-context-aware.js" "$REPO_ROOT"
 
+# Bundled packages that still use remote for app paths / protocol client
+echo "Patching bundled packages for remote→IPC…"
+node "$SCRIPT_DIR/lib/patch-packages-remote-ipc.js" "$REPO_ROOT"
+
 echo "Rebuilding native modules for Electron ${ELECTRON_VERSION:-}…"
 # Rebuild against Electron (not host Node). apm sets target from package.json.
 export ATOM_RESOURCE_PATH="$REPO_ROOT"
