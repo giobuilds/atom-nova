@@ -25,7 +25,10 @@ function isAtomRepoPath(repoPath) {
   if (fs.statSyncNoException(packageJsonPath)) {
     try {
       let packageJson = CSON.readFileSync(packageJsonPath);
-      return packageJson.name === 'atom';
+      // Upstream Atom used "atom"; AtomNova uses "atomnova-editor".
+      return (
+        packageJson.name === 'atom' || packageJson.name === 'atomnova-editor'
+      );
     } catch (e) {
       return false;
     }

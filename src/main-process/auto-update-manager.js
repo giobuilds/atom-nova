@@ -28,11 +28,18 @@ module.exports = class AutoUpdateManager extends EventEmitter {
       'resources',
       'atom.png'
     );
-    this.updateUrlPrefix =
-      process.env.ATOM_UPDATE_URL_PREFIX || 'https://atom.io';
+    // AtomNova: no default update feed (atom.io is dead / not ours).
+    // Opt in with ATOM_UPDATE_URL_PREFIX when a real feed exists.
+    this.updateUrlPrefix = process.env.ATOM_UPDATE_URL_PREFIX || '';
   }
 
   initialize() {
+    // No feed configured → stay idle/unsupported; do not contact atom.io.
+    if (!this.updateUrlPrefix) {
+      this.setState(UnsupportedState);
+      return;
+    }
+
     if (process.platform === 'win32') {
       const archSuffix = process.arch === 'ia32' ? '' : `-${process.arch}`;
       this.feedUrl =
@@ -153,6 +160,11 @@ module.exports = class AutoUpdateManager extends EventEmitter {
   }
 
   check({ hidePopups } = {}) {
+    if (!autoUpdater) {
+      if (!hidePopups) this.onUpdateNotAvailable();
+      return;
+    }
+
     if (!hidePopups) {
       autoUpdater.once('update-not-available', this.onUpdateNotAvailable);
       autoUpdater.once('error', this.onUpdateError);
@@ -162,7 +174,7 @@ module.exports = class AutoUpdateManager extends EventEmitter {
   }
 
   install() {
-    if (!this.testMode) autoUpdater.quitAndInstall();
+    if (!this.testMode && autoUpdater) autoUpdater.quitAndInstall();
   }
 
   onUpdateNotAvailable() {

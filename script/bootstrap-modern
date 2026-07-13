@@ -138,6 +138,10 @@ atomnova_force_patched_superstring "$REPO_ROOT"
 echo "Patching natives for NODE_MODULE_CONTEXT_AWARE…"
 node "$SCRIPT_DIR/lib/patch-natives-context-aware.js" "$REPO_ROOT"
 
+# keytar@4.x nan is too old for Electron 14 (GetContents → GetBackingStore)
+echo "Patching keytar nested nan for Electron 14+…"
+node "$SCRIPT_DIR/lib/patch-keytar-nan.js" "$REPO_ROOT"
+
 # Bundled packages that still use remote for app paths / protocol client
 echo "Patching bundled packages for remote→IPC…"
 node "$SCRIPT_DIR/lib/patch-packages-remote-ipc.js" "$REPO_ROOT"
@@ -146,19 +150,18 @@ echo "Rebuilding native modules for Electron ${ELECTRON_VERSION:-}…"
 # Rebuild against Electron (not host Node). apm sets target from package.json.
 export ATOM_RESOURCE_PATH="$REPO_ROOT"
 export ATOM_ELECTRON_URL="${ATOM_ELECTRON_URL:-https://www.electronjs.org/headers}"
+ELECTRON_VERSION="$(node -p "require('./package.json').electronVersion")"
+export npm_config_target="$ELECTRON_VERSION"
+export npm_config_disturl="${ATOM_ELECTRON_URL}"
+export npm_config_runtime=electron
+export npm_config_build_from_source=true
+export npm_config_arch="${npm_config_arch:-$(node -p "process.arch")}"
+
 # apm rebuild compiles all packages that have binding.gyp for current Electron
 if "$REPO_ROOT/apm/node_modules/atom-package-manager/bin/apm" rebuild 2>/dev/null; then
   echo "apm rebuild finished."
 else
-  # Fallback: electron-targeted npm rebuild of top-level natives
-  ELECTRON_VERSION="$(node -p "require('./package.json').electronVersion")"
-  export npm_config_target="$ELECTRON_VERSION"
-  export npm_config_disturl="${ATOM_ELECTRON_URL}"
-  export npm_config_runtime=electron
-  export npm_config_build_from_source=true
-  export npm_config_arch="${npm_config_arch:-$(node -p "process.arch")}"
   echo "apm rebuild unavailable; npm rebuild with target=$ELECTRON_VERSION"
-  # Rebuild from repo root using apm's node-gyp via npm in PATH from script
   (cd "$REPO_ROOT" && npm rebuild 2>&1) || {
     echo "npm rebuild failed; trying per-package superstring rebuild…"
     APM_NODE="$REPO_ROOT/apm/node_modules/atom-package-manager/bin/node"
@@ -169,6 +172,26 @@ else
         --dist-url="$ATOM_ELECTRON_URL" \
         --arch="$(node -p "process.arch")")
   }
+fi
+
+# Ensure keytar.node exists (github package). Full npm rebuild may skip if
+# prebuild metadata is present without a usable binary.
+if [ ! -f "$REPO_ROOT/node_modules/keytar/build/Release/keytar.node" ]; then
+  echo "Rebuilding keytar for Electron $ELECTRON_VERSION…"
+  if [ -x "$REPO_ROOT/node_modules/.bin/electron-rebuild" ]; then
+    "$REPO_ROOT/node_modules/.bin/electron-rebuild" -v "$ELECTRON_VERSION" -f -w keytar || true
+  else
+    (cd "$REPO_ROOT/node_modules/keytar" && npm run build --if-present 2>/dev/null) || \
+    (cd "$REPO_ROOT/node_modules/keytar" && node-gyp rebuild \
+      --target="$ELECTRON_VERSION" \
+      --dist-url="$ATOM_ELECTRON_URL" \
+      --arch="$(node -p "process.arch")" || true)
+  fi
+fi
+if [ -f "$REPO_ROOT/node_modules/keytar/build/Release/keytar.node" ]; then
+  echo "keytar.node present."
+else
+  echo "WARNING: keytar.node still missing — github package password storage will fail."
 fi
 
 # --- Step 5: fingerprint -----------------------------------------------------

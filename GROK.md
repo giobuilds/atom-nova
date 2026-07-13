@@ -4,8 +4,8 @@ Context for the next Grok (or human) session working on this repo.
 
 **Repo:** `/Users/giovanni/Workspace/atom-nova`  
 **Remote:** `gdick-crypto/atom-nova`  
-**Base:** Atom 1.65.0-dev (Electron **11.5.0**), not Pulsar  
-**Date of this handoff:** 2026-07-12  
+**Base:** Atom 1.65.0-dev (Electron **14.2.9**), not Pulsar  
+**Date of this handoff:** 2026-07-13  
 
 ---
 
@@ -53,10 +53,12 @@ open "out/Atom Dev.app"   # still named Atom Dev (channel-based)
 2. **Blank window** — caused by regenerating snapshot **without** `prebuild-less-cache` in the same process → missing `lessSourcesByRelativeFilePath` → ThemeManager TypeError on `about.less`.  
    - Fix: always full `script/build`; defensive `|| {}` in `src/theme-manager.js`; `.catch(handleSetupError)` on `setupWindow()` in `static/index.js`.  
    - **Rule:** never call `generateStartupSnapshot` alone in a fresh Node process.
-3. **Dock icon but no window (Electron 14)** — three stacked issues after the Electron 14 upgrade:
-   - `contextIsolation` defaults to `true` → `require is not defined` in `static/index.js`. Fix: `contextIsolation: false` in `src/main-process/atom-window.js` (temporary; full isolation is still the security epic).
-   - Built-in `electron.remote` removed → use `@electron/remote` (init in main `start.js`, `enable(webContents)` per window, polyfill `electron.remote` in renderer).
-   - Non-context-aware `NODE_MODULE` natives blocked in renderer → `script/lib/patch-natives-context-aware.js` + rebuild (wired into `bootstrap-modern`). Vendored packages (`superstring`, `watcher`, `tree-sitter`) are already patched in-tree.
+3. **Dock icon but no window (Electron 14)** — stacked issues after the Electron 14 upgrade (all addressed):
+   - Page `require is not defined` under default isolation → **`static/preload.js`** boots Atom in the preload Node world; page has no Node (`contextIsolation: true`, `nodeIntegration: false`).
+   - Built-in `electron.remote` removed → **`src/remote-compat.js` + `register-renderer-ipc.js`** (no `@electron/remote`).
+   - Non-context-aware `NODE_MODULE` natives → `script/lib/patch-natives-context-aware.js` + rebuild (wired into `bootstrap-modern`). Vendored packages (`superstring`, `watcher`, `tree-sitter`) are already patched in-tree.
+   - Custom elements un-upgraded under isolation → `src/create-custom-element.js` (`new Class()`).
+4. **Hygiene** — auto-update does **not** default to `atom.io` (set `ATOM_UPDATE_URL_PREFIX` to opt in); `isAtomRepoPath` / module-cache accept `atomnova-editor`.
 
 ### Docs / planning
 
@@ -81,7 +83,7 @@ Uncommitted rebrand WIP was **discarded** with `git restore` (owner postponed fu
 
 | Item | Value |
 |------|--------|
-| Electron | **14.2.9** (upgrade in progress from 11.5; bootstrap may need native patches) |
+| Electron | **14.2.9** (next ladder: 18 → 22 → 28 → current) |
 | Package name | `atomnova-editor` |
 | productName | `AtomNova` |
 | Built app name | Still **Atom Dev** via `script/config.js` channel logic |
@@ -99,14 +101,14 @@ Do **not** start Avalonia or deep rebrand next.
 
 Suggested order:
 
-1. **Hygiene (partially done)**  
+1. **Hygiene**  
    - ~~Disable metrics / exception-reporting / crash upload~~ **done**  
-   - Disable or stub auto-update (`ATOM_UPDATE_URL_PREFIX` / feed defaults)  
+   - ~~Stub auto-update (no default atom.io feed)~~ **done** — set `ATOM_UPDATE_URL_PREFIX` when a real feed exists  
 
 2. **Electron upgrade plan**  
-   - Pick target **current stable Electron**  
-   - Plan step ladder (e.g. 11 → 14 → 18 → 22 → 28 → current)  
-   - Inventory `remote` usage (core + packages) and native modules  
+   - **Now on 14.2.9**  
+   - Next ladder: **18** → 22 → 28 → current stable  
+   - Re-inventory natives + ABI rebuilds each rung  
 
 3. **Security architecture**  
    - **Inventory:** `docs/remote-ipc-inventory.md`  
@@ -147,9 +149,12 @@ Suggested order:
 | `superstring@2.4.4` vs Electron 14+ | Vendored `packages/superstring` with `GetBackingStore` patch (`2.4.4-atomnova.1`) |
 | Non-context-aware natives on Electron 12+ | `node script/lib/patch-natives-context-aware.js` then rebuild natives |
 | `electron.remote` on Electron 14+ | **Resolved:** `src/remote-compat.js` + `register-renderer-ipc.js` (no `@electron/remote`) |
-| `name === 'atom'` in main/module-cache | Dev repo detect may be wrong for `atomnova-editor` |
 | Packaged vs dev | Packaged uses snapshot; `--dev --resource-path=$PWD` skips it |
 | Nested superstring without `.node` | After rebuild, copy `packages/superstring` **including** `build/` into nested installs (force-patched script excludes `build/` on purpose) |
+| `keytar` native missing / fails to build | github needs `keytar.node`; keytar 4.x needs `nan` ≥ 2.22 for Electron 14, then electron-rebuild |
+| GitHub worker windows | Still `contextIsolation: false` + Node (trusted hidden windows via remote-compat) |
+| `keytar` native missing / fails to build | github package needs `keytar.node`; rebuild for Electron ABI (nan ≥ 2.22 under keytar 4.x, or upgrade keytar) |
+| GitHub worker windows | Still `contextIsolation: false` + Node (trusted hidden windows via remote-compat) |
 
 ---
 
@@ -177,10 +182,10 @@ Read first:
 
 ## Success criteria for the “Electron catch-up” phase
 
-- [ ] Runs on a **current** Electron stable release  
-- [ ] No production reliance on `remote` / renderer `nodeIntegration`  
-- [ ] contextIsolation enabled  
-- [ ] No unexpected traffic to atom.io / Bugsnag (or fully user-owned endpoints)  
+- [ ] Runs on a **current** Electron stable release (currently **14.2.9**; next target 18+)  
+- [x] No production reliance on `@electron/remote` (compat IPC layer remains)  
+- [x] `contextIsolation: true` (page); Node only in preload  
+- [x] No metrics/crash upload; auto-update not pointed at atom.io by default  
 - [ ] Documented build + CI green on at least one modern platform  
 - [ ] Core editor + critical packages usable; package migration notes published  
 

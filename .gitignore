@@ -20,6 +20,8 @@ spec/fixtures/evil-files/
 out/
 /electron/
 
-# Local node-gyp output for vendored native packages (rebuild via bootstrap/build)
+# Local node-gyp / electron-rebuild output for vendored native packages
 packages/*/build/
 packages/*/*/build/
+packages/*/bin/
+packages/*/*/bin/

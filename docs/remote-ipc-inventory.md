@@ -1,10 +1,10 @@
 # Remote / IPC inventory (Electron security ladder)
 
 **Date:** 2026-07-13  
-**Baseline:** Electron **14.2.9**, `nodeIntegration: true`, `contextIsolation: false`, `@electron/remote` polyfill  
-**Goal:** Replace `electron.remote` with **main-process IPC + preload** so we can enable `contextIsolation` and drop renderer Node.
+**Baseline (current):** Electron **14.2.9**, `contextIsolation: true`, page `nodeIntegration: false`, preload boots Atom (`static/preload.js`), **no** `@electron/remote` — `src/remote-compat.js` over IPC.  
+**Historical goal (met for remote):** Replace `electron.remote` with **main-process IPC + preload**, enable isolation, remove `@electron/remote`.
 
-This is an **inventory and kill-list**, not an implementation plan for isolation itself.
+This doc began as an inventory/kill-list. Sections 1–8 describe the pre-migration surface; **§9 is the source of truth for current status**.
 
 ---
 
@@ -24,22 +24,29 @@ This is an **inventory and kill-list**, not an implementation plan for isolation
 
 ---
 
-## Current architecture (simplified)
+## Current architecture (simplified) — post P0–P4 + isolation
 
 ```text
 ┌─ Main ─────────────────────────────────────────────────────────┐
-│  start.js: @electron/remote/main.initialize()                    │
-│  atom-window.js: enable(webContents)                             │
-│  atom-application.js: ipcMain + ipcHelpers.respondTo(...)        │
+│  register-renderer-ipc.js: load-settings, dialogs, Menu.popup,  │
+│    BrowserWindow workers, clipboard, screen, shell, …           │
+│  atom-application.js: existing ipcHelpers + window channels     │
+│  atom-window.js: preload=static/preload.js, isolation true      │
 └────────────────────────────┬────────────────────────────────────┘
-                             │ IPC  (open, show-window, window-method, …)
-┌─ Renderer ─────────────────┴────────────────────────────────────┐
-│  static/index.js: polyfill electron.remote = require('@electron/remote') │
-│  get-window-load-settings.js: remote.getCurrentWindow().loadSettingsJSON │
-│  application-delegate.js: remote + ipcRenderer hybrid            │
-│  packages: some remote (github, tabs, …)                         │
-└──────────────────────────────────────────────────────────────────┘
+                             │ IPC (remote-compat + legacy channels)
+┌─ Preload (Node) ───────────┴────────────────────────────────────┐
+│  static/preload.js → static/index.js                            │
+│  electron.remote = src/remote-compat.js → renderer-ipc.js       │
+│  ApplicationDelegate / get-window-load-settings via IPC         │
+│  create-custom-element for pane/workspace/styles under isolation│
+└─────────────────────────────────────────────────────────────────┘
+┌─ Page (no Node) ────────────────────────────────────────────────┐
+│  static/index.html (empty shell; custom elements upgraded from  │
+│  preload-side factories)                                        │
+└─────────────────────────────────────────────────────────────────┘
 ```
+
+*Pre-migration diagram (historical): main `@electron/remote` enable + renderer polyfill + `contextIsolation: false`.*
 
 ---
 
@@ -343,4 +350,4 @@ Packages: document `atomNova` (or keep `atom` APIs that already abstract Electro
 
 ---
 
-*Inventory only. No runtime behavior changed by this document.*
+*Sections 1–8 are historical inventory. §9 reflects implemented architecture as of 2026-07-13.*
