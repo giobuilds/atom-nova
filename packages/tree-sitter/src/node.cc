@@ -24,19 +24,12 @@ static TSTreeCursor scratch_cursor = {nullptr, nullptr, {0, 0}};
 static inline void setup_transfer_buffer(uint32_t node_count) {
   uint32_t new_length = node_count * FIELD_COUNT_PER_NODE;
   if (new_length > transfer_buffer_length) {
-    if (transfer_buffer) {
-      free(transfer_buffer);
-    }
+    // Electron 21+ V8 sandbox: backing stores must live inside the sandbox.
+    // V8 owns the memory (freed with the previous ArrayBuffer on GC), so let
+    // it allocate and point the native pointer at its storage — no malloc/free.
     transfer_buffer_length = new_length;
-    transfer_buffer = static_cast<uint32_t *>(malloc(transfer_buffer_length * sizeof(uint32_t)));
-    // Electron 14+ / modern V8: 3-arg ArrayBuffer::New(data, length) removed
-    auto transfer_store = ArrayBuffer::NewBackingStore(
-      transfer_buffer,
-      transfer_buffer_length * sizeof(uint32_t),
-      [](void *, size_t, void *) {},
-      nullptr
-    );
-    auto js_transfer_buffer = ArrayBuffer::New(Isolate::GetCurrent(), std::move(transfer_store));
+    auto js_transfer_buffer = ArrayBuffer::New(Isolate::GetCurrent(), transfer_buffer_length * sizeof(uint32_t));
+    transfer_buffer = static_cast<uint32_t *>(js_transfer_buffer->GetBackingStore()->Data());
     Nan::Set(
       Nan::New(module_exports),
       Nan::New("nodeTransferArray").ToLocalChecked(),

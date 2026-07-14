@@ -71,12 +71,14 @@ export PYTHON="$_python311"
 export npm_config_python="$_python311"
 export NODE_GYP_FORCE_PYTHON="$_python311"
 
-# --- C++14 for Node/Electron headers on modern clang -------------------------
+# --- C++ standard for Node/Electron headers on modern clang ------------------
+# Electron 20+ headers (common.gypi) build with gnu++17; forcing c++14 via
+# CXXFLAGS would override gyp's own -std and break V8 10.x headers.
 case " ${CXXFLAGS:-} " in
   *" -std=c++"* | *"-std=c++"* ) ;;
-  * ) export CXXFLAGS="-std=c++14${CXXFLAGS:+ $CXXFLAGS}" ;;
+  * ) export CXXFLAGS="-std=c++17${CXXFLAGS:+ $CXXFLAGS}" ;;
 esac
-export npm_config_cxxflags="${npm_config_cxxflags:--std=c++14}"
+export npm_config_cxxflags="${npm_config_cxxflags:--std=c++17}"
 
 # --- Electron headers (atom.io download endpoint is dead) --------------------
 export ATOM_ELECTRON_URL="${ATOM_ELECTRON_URL:-https://www.electronjs.org/headers}"

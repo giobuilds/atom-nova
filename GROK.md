@@ -4,7 +4,7 @@ Context for the next Grok (or human) session working on this repo.
 
 **Repo:** `/Users/giovanni/Workspace/atom-nova`  
 **Remote:** `gdick-crypto/atom-nova`  
-**Base:** Atom 1.65.0-dev (Electron **18.3.15**), not Pulsar  
+**Base:** Atom 1.65.0-dev (Electron **22.3.27**), not Pulsar  
 **Date of this handoff:** 2026-07-14  
 
 ---
@@ -83,7 +83,7 @@ Uncommitted rebrand WIP was **discarded** with `git restore` (owner postponed fu
 
 | Item | Value |
 |------|--------|
-| Electron | **18.3.15** (next ladder: 22 → 28 → current) |
+| Electron | **22.3.27** (next ladder: 28 → current) |
 | Package name | `atomnova-editor` |
 | productName | `AtomNova` |
 | Built app name | Still **Atom Dev** via `script/config.js` channel logic |
@@ -106,8 +106,8 @@ Suggested order:
    - ~~Stub auto-update (no default atom.io feed)~~ **done** — set `ATOM_UPDATE_URL_PREFIX` when a real feed exists  
 
 2. **Electron upgrade plan**  
-   - **Now on 18.3.15** (done 2026-07-14)  
-   - Next ladder: **22** → 28 → current stable  
+   - **Now on 22.3.27** (done 2026-07-14)  
+   - Next ladder: **28** → current stable  
    - Re-inventory natives + ABI rebuilds each rung  
    - 14→18 lessons: `allowRendererProcessReuse` escape hatch is gone (E17), so
      **every** renderer native must be truly context-aware — the patcher now
@@ -118,6 +118,16 @@ Suggested order:
      apm's npm 6 needs `patch-apm-npm.js` (npm/npm#19877 crash);
      window proxy in `renderer-ipc.js` now bridges BrowserWindow
      `blur`/`focus`/`removeListener` to DOM events (background-tips).  
+   - 18→22 lessons: Electron 20+ headers reject node-gyp < 9 (config.gypi
+     guard) → apm's bundled gyp 5 can't build anything; `bootstrap-modern`
+     now uses `script/node_modules/.bin/node-gyp` (9.x) and `npm rebuild`
+     for Electron ≥ 20. C++ standard bumped to **c++17** in `modern-env.sh`
+     (E22 common.gypi builds gnu++17). V8 10.x removed `CreationContext()`
+     → `script/lib/patch-v8-api.js` rewrites to `GetCreationContext()`.
+     **V8 memory cage (E21+)**: wrapping `malloc`ed memory in ArrayBuffers
+     aborts the renderer — vendored `packages/tree-sitter`
+     (`conversions.cc`, `node.cc`) now lets V8 allocate transfer buffers
+     and points the native pointer at `GetBackingStore()->Data()`.  
 
 3. **Security architecture**  
    - **Inventory:** `docs/remote-ipc-inventory.md`  
@@ -192,7 +202,7 @@ Read first:
 
 ## Success criteria for the “Electron catch-up” phase
 
-- [ ] Runs on a **current** Electron stable release (currently **18.3.15**; next target 22+)  
+- [ ] Runs on a **current** Electron stable release (currently **22.3.27**; next target 28+)  
 - [x] No production reliance on `@electron/remote` (compat IPC layer remains)  
 - [x] `contextIsolation: true` (page); Node only in preload  
 - [x] No metrics/crash upload; auto-update not pointed at atom.io by default  

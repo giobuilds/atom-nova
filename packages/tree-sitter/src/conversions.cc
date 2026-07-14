@@ -27,15 +27,10 @@ void InitConversions(Local<Object> exports) {
   end_index_key.Reset(Nan::Persistent<String>(Nan::New("endIndex").ToLocalChecked()));
   end_position_key.Reset(Nan::Persistent<String>(Nan::New("endPosition").ToLocalChecked()));
 
-  point_transfer_buffer = static_cast<uint32_t *>(malloc(2 * sizeof(uint32_t)));
-  // Electron 14+ / modern V8: 3-arg ArrayBuffer::New(data, length) removed
-  auto point_store = ArrayBuffer::NewBackingStore(
-    point_transfer_buffer,
-    2 * sizeof(uint32_t),
-    [](void *, size_t, void *) {},
-    nullptr
-  );
-  auto js_point_transfer_buffer = ArrayBuffer::New(Isolate::GetCurrent(), std::move(point_store));
+  // Electron 21+ V8 sandbox: backing stores must live inside the sandbox, so
+  // let V8 allocate the buffer and point the native pointer at its storage.
+  auto js_point_transfer_buffer = ArrayBuffer::New(Isolate::GetCurrent(), 2 * sizeof(uint32_t));
+  point_transfer_buffer = static_cast<uint32_t *>(js_point_transfer_buffer->GetBackingStore()->Data());
   Nan::Set(exports, Nan::New("pointTransferArray").ToLocalChecked(), Uint32Array::New(js_point_transfer_buffer, 0, 2));
 }
 

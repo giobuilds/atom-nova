@@ -937,7 +937,7 @@ void TextBufferWrapper::load(const Nan::FunctionCallbackInfo<Value> &info) {
   if (!force && text_buffer.is_modified()) {
     Local<Value> argv[] = {Nan::Null(), Nan::Null()};
     auto callback = info[0].As<Function>();
-    Nan::Call(callback, callback->CreationContext()->Global(), 2, argv);
+    Nan::Call(callback, callback->GetCreationContext().ToLocalChecked()->Global(), 2, argv);
     return;
   }
 
@@ -1041,7 +1041,7 @@ void TextBufferWrapper::base_text_matches_file(const Nan::FunctionCallbackInfo<V
     bool result = std::equal(file_contents.begin(), file_contents.end(), text_buffer.base_text().begin());
     Local<Value> argv[] = {Nan::Null(), Nan::New<Boolean>(result)};
     auto callback = info[0].As<Function>();
-    Nan::Call(callback, callback->CreationContext()->Global(), 2, argv);
+    Nan::Call(callback, callback->GetCreationContext().ToLocalChecked()->Global(), 2, argv);
   }
 }
 

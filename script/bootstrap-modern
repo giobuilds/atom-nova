@@ -150,19 +150,39 @@ node "$SCRIPT_DIR/lib/patch-keytar-nan.js" "$REPO_ROOT"
 echo "Patching bundled packages for remote→IPC…"
 node "$SCRIPT_DIR/lib/patch-packages-remote-ipc.js" "$REPO_ROOT"
 
+# V8 10.x (Electron 21+) removed CreationContext(); patch old natives.
+echo "Patching natives for removed V8 APIs…"
+node "$SCRIPT_DIR/lib/patch-v8-api.js" "$REPO_ROOT"
+
 echo "Rebuilding native modules for Electron ${ELECTRON_VERSION:-}…"
 # Rebuild against Electron (not host Node). apm sets target from package.json.
 export ATOM_RESOURCE_PATH="$REPO_ROOT"
 export ATOM_ELECTRON_URL="${ATOM_ELECTRON_URL:-https://www.electronjs.org/headers}"
 ELECTRON_VERSION="$(node -p "require('./package.json').electronVersion")"
+ELECTRON_MAJOR="${ELECTRON_VERSION%%.*}"
 export npm_config_target="$ELECTRON_VERSION"
 export npm_config_disturl="${ATOM_ELECTRON_URL}"
 export npm_config_runtime=electron
 export npm_config_build_from_source=true
 export npm_config_arch="${npm_config_arch:-$(node -p "process.arch")}"
 
-# apm rebuild compiles all packages that have binding.gyp for current Electron
-if "$REPO_ROOT/apm/node_modules/atom-package-manager/bin/apm" rebuild 2>/dev/null; then
+# Electron 20+ headers reject node-gyp < 9 (config.gypi guard), which rules
+# out apm's bundled node-gyp 5. Use script/node_modules' node-gyp instead.
+MODERN_GYP="$REPO_ROOT/script/node_modules/.bin/node-gyp"
+rebuild_package_modern() {
+  (cd "$1" && "$MODERN_GYP" rebuild \
+    --target="$ELECTRON_VERSION" \
+    --dist-url="$ATOM_ELECTRON_URL" \
+    --arch="$(node -p "process.arch")")
+}
+
+if [ "$ELECTRON_MAJOR" -ge 20 ]; then
+  echo "Electron $ELECTRON_VERSION: apm's node-gyp is too old; npm rebuild + modern gyp"
+  (cd "$REPO_ROOT" && npm rebuild 2>&1) || {
+    echo "npm rebuild failed; trying per-package superstring rebuild…"
+    rebuild_package_modern "$REPO_ROOT/node_modules/superstring"
+  }
+elif "$REPO_ROOT/apm/node_modules/atom-package-manager/bin/apm" rebuild 2>/dev/null; then
   echo "apm rebuild finished."
 else
   echo "apm rebuild unavailable; npm rebuild with target=$ELECTRON_VERSION"
@@ -182,7 +202,9 @@ fi
 # prebuild metadata is present without a usable binary.
 if [ ! -f "$REPO_ROOT/node_modules/keytar/build/Release/keytar.node" ]; then
   echo "Rebuilding keytar for Electron $ELECTRON_VERSION…"
-  if [ -x "$REPO_ROOT/node_modules/.bin/electron-rebuild" ]; then
+  if [ -x "$MODERN_GYP" ]; then
+    rebuild_package_modern "$REPO_ROOT/node_modules/keytar" || true
+  elif [ -x "$REPO_ROOT/node_modules/.bin/electron-rebuild" ]; then
     "$REPO_ROOT/node_modules/.bin/electron-rebuild" -v "$ELECTRON_VERSION" -f -w keytar || true
   else
     (cd "$REPO_ROOT/node_modules/keytar" && npm run build --if-present 2>/dev/null) || \

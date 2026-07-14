@@ -375,7 +375,11 @@ module.exports = function registerRendererIpc(atomApplication) {
       const win = new BrowserWindow(
         Object.assign({}, options, { webPreferences })
       );
-      createdWindows.set(win.id, win);
+      // Capture ids now: BrowserWindow getters throw once the window is
+      // destroyed, and the closed/destroyed handlers below run exactly then.
+      const winId = win.id;
+      const wcId = win.webContents.id;
+      createdWindows.set(winId, win);
 
       const managerWc = event.sender;
       const destroyWorker = () => {
@@ -387,7 +391,7 @@ module.exports = function registerRendererIpc(atomApplication) {
       managerWc.once('crashed', destroyWorker);
 
       win.on('closed', () => {
-        createdWindows.delete(win.id);
+        createdWindows.delete(winId);
         try {
           managerWc.removeListener('destroyed', destroyWorker);
           managerWc.removeListener('render-process-gone', destroyWorker);
@@ -401,8 +405,8 @@ module.exports = function registerRendererIpc(atomApplication) {
       const forward = name => {
         if (!managerWc.isDestroyed()) {
           managerWc.send('atom-worker-window-event', {
-            windowId: win.id,
-            webContentsId: win.webContents.id,
+            windowId: winId,
+            webContentsId: wcId,
             event: name
           });
         }
@@ -412,8 +416,8 @@ module.exports = function registerRendererIpc(atomApplication) {
       win.webContents.on('destroyed', () => forward('destroyed'));
 
       event.returnValue = {
-        id: win.id,
-        webContentsId: win.webContents.id
+        id: winId,
+        webContentsId: wcId
       };
     } catch (error) {
       console.error('atom-create-browser-window-sync', error);
