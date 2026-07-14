@@ -13,9 +13,10 @@ concurrency:
 jobs:
   build-and-smoke:
     name: Bootstrap, build & launch smoke test (macOS)
-    # x86_64 with Xcode 15 selected by default — matches the proven local
-    # toolchain (modern-env picks gnu++20 / DEVELOPER_DIR as needed).
-    runs-on: macos-13
+    # x86_64 (matches the proven local toolchain) with Xcode 16 — macos-13
+    # was retired from GitHub-hosted runners in December 2025; macos-15-intel
+    # is GitHub's designated x86_64 replacement until Fall 2027.
+    runs-on: macos-15-intel
     timeout-minutes: 90
 
     steps:
