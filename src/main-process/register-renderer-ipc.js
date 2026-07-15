@@ -35,6 +35,21 @@ function resolveWindow(windowId) {
   );
 }
 
+// Schemes the renderer is allowed to hand to shell.openExternal. The main
+// process is the real trust boundary here: the renderer-side link handler
+// only ever passes http(s), but a compromised renderer could otherwise ask
+// the OS to open file://, smb://, or an arbitrary app-registered scheme.
+const OPEN_EXTERNAL_SCHEMES = new Set(['http:', 'https:', 'mailto:']);
+
+function isAllowedExternalUrl(url) {
+  if (typeof url !== 'string') return false;
+  try {
+    return OPEN_EXTERNAL_SCHEMES.has(new URL(url).protocol);
+  } catch (error) {
+    return false;
+  }
+}
+
 module.exports = function registerRendererIpc(atomApplication) {
   if (registered) return;
   registered = true;
@@ -116,14 +131,17 @@ module.exports = function registerRendererIpc(atomApplication) {
   });
 
   ipcMain.on('atom-web-contents-call-sync', (event, method, ...args) => {
+    // Clipboard/history editing only. executeJavaScript was previously
+    // reachable here but has no consumer (getCurrentWebContents is used only
+    // for its .id), so it is intentionally excluded — the renderer must not
+    // be able to eval arbitrary code in a webContents over IPC.
     const ALLOWED = new Set([
       'copy',
       'paste',
       'cut',
       'undo',
       'redo',
-      'selectAll',
-      'executeJavaScript'
+      'selectAll'
     ]);
     if (!ALLOWED.has(method)) {
       event.returnValue = null;
@@ -192,6 +210,10 @@ module.exports = function registerRendererIpc(atomApplication) {
   });
 
   ipcMain.handle('atom-shell-open-external', async (_event, url) => {
+    if (!isAllowedExternalUrl(url)) {
+      console.warn(`atom-shell-open-external: blocked url ${String(url)}`);
+      return false;
+    }
     return shell.openExternal(url);
   });
 
@@ -361,19 +383,25 @@ module.exports = function registerRendererIpc(atomApplication) {
     try {
       // GitHub git workers are trusted hidden windows: they need Node require()
       // in the page (worker.js) and do not use the main Atom preload.
-      const webPreferences = Object.assign(
-        {
-          nodeIntegration: true,
-          contextIsolation: false,
-          sandbox: false,
-          enableRemoteModule: false
-        },
-        options.webPreferences || {}
-      );
-      delete webPreferences.enableRemoteModule;
+      //
+      // webPreferences is a FIXED set — caller-supplied webPreferences are
+      // ignored so a compromised renderer cannot inject a `preload`,
+      // `additionalArguments`, or other privileged options into a new
+      // Node-enabled window. The only real caller (github WorkerManager)
+      // passes nodeIntegration (already the default here) + enableRemoteModule
+      // (unsupported), both of which this set already covers.
+      const webPreferences = {
+        nodeIntegration: true,
+        contextIsolation: false,
+        sandbox: false
+      };
+
+      // Drop any caller webPreferences; keep other top-level window options.
+      const windowOptions = Object.assign({}, options);
+      delete windowOptions.webPreferences;
 
       const win = new BrowserWindow(
-        Object.assign({}, options, { webPreferences })
+        Object.assign({}, windowOptions, { webPreferences })
       );
       // Capture ids now: BrowserWindow getters throw once the window is
       // destroyed, and the closed/destroyed handlers below run exactly then.
