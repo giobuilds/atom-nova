@@ -157,7 +157,9 @@ Suggested order:
    - **Inventory:** `docs/remote-ipc-inventory.md`  
    - **P0–P4 done:** no `@electron/remote`; IPC `remote-compat`  
    - **Preload + contextIsolation done:** page has no Node; `static/preload.js` boots Atom; custom elements use `create-custom-element.js`  
-   - Next: Electron 18; then Phase N (narrow package Node surface / sandbox where possible)
+   - **Phase N2** (PR when open): package shell openExternal / trash / show-in-folder via main IPC  
+   - **Phase N3:** guest `<webview>` lockdown + deny renderer `window.open`; preload privilege map — `docs/security-phase-n3.md`  
+   - **Next:** continue N2 deferred (fuzzy-finder crawl); shrink package Node; Phase S sandbox guests/core later
 4. **Native modules + CI**  
    - Rebuild against each Electron ABI  
    - GitHub Actions for bootstrap/build/test on modern OS  

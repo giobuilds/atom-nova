@@ -58,15 +58,20 @@ module.exports = class AtomWindow extends EventEmitter {
         // response to a middle-click.
         // (Ref: https://github.com/atom/atom/pull/12696#issuecomment-290496960)
         disableBlinkFeatures: 'Auxclick',
-        // Security: page world has no Node. Preload (static/preload.js) has Node
-        // and runs the full Atom bootstrap; it shares the DOM with the page.
+        // Security (Phase I / N3):
+        // - Page world: no Node (nodeIntegration false + contextIsolation).
+        // - Preload world: full Node, boots Atom (static/preload.js) + packages.
+        // - sandbox must stay false so preload can load natives (superstring,
+        //   pathwatcher, tree-sitter, oniguruma, …). See docs/security-phase-n3.md.
+        // - webviewTag remains available for community packages, but guest
+        //   prefs are forced safe in will-attach-webview (handleEvents).
         preload: preloadPath,
         contextIsolation: true,
         nodeIntegration: false,
-        // sandbox must stay false so preload can load native modules (superstring, etc.)
         sandbox: false,
         webviewTag: true,
-        // node support in threads (used by some packages / workers)
+        // Web Workers in the preload/package world may use require(); leave on
+        // until packages are audited off Node workers (Phase N later).
         nodeIntegrationInWorker: true
       },
       simpleFullscreen: this.getSimpleFullscreen()
@@ -273,6 +278,34 @@ module.exports = class AtomWindow extends EventEmitter {
     this.browserWindow.webContents.on('will-navigate', (event, url) => {
       if (url !== this.browserWindow.webContents.getURL())
         event.preventDefault();
+    });
+
+    // Phase N3 / N4: guest <webview> content must never receive Node, the Atom
+    // preload, or an unsandboxed renderer. Packages cannot override this via
+    // webview attributes — main overwrites webPreferences on attach.
+    this.browserWindow.webContents.on(
+      'will-attach-webview',
+      (_event, webPreferences, _params) => {
+        delete webPreferences.preload;
+        delete webPreferences.preloadURL;
+        webPreferences.nodeIntegration = false;
+        webPreferences.nodeIntegrationInWorker = false;
+        webPreferences.nodeIntegrationInSubFrames = false;
+        webPreferences.contextIsolation = true;
+        webPreferences.sandbox = true;
+        webPreferences.webSecurity = true;
+        webPreferences.allowRunningInsecureContent = false;
+        webPreferences.experimentalFeatures = false;
+      }
+    );
+
+    // Deny window.open / target=_blank BrowserWindows from the renderer.
+    // New editor windows go through main IPC (application:new-window, etc.).
+    this.browserWindow.webContents.setWindowOpenHandler(({ url }) => {
+      console.warn(
+        `AtomWindow: blocked window.open from renderer (${String(url)})`
+      );
+      return { action: 'deny' };
     });
 
     this.setupContextMenu();
