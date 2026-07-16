@@ -4,11 +4,11 @@
 # Or use:            script/with-modern-env <command...>
 #
 # Requirements (install once):
-#   - nvm + Node 22 LTS:  nvm install 22 && nvm use 22
-#     (accepted host range: Node 20–24; default pin is 22)
-#   - Python 3.12 (preferred) or 3.11:
+#   - nvm + Node 24 (matches Electron 43 host story):  nvm install 24 && nvm use 24
+#     (accepted host range: Node 20–24; default pin is 24)
+#   - Python 3.12 (CI preferred) or 3.13 / 3.11:
 #       brew install python@3.12   (macOS)
-#       # or: brew install python@3.11
+#       # or: brew install python@3.13 / python@3.11
 #   - For Python 3.12+: pip install setuptools  (provides distutils for node-gyp)
 #   - python shim:    created automatically under ~/.local/bin/python
 #   - Xcode CLT / build-essential for native modules
@@ -28,10 +28,10 @@ fi
 _atomnova_source="${BASH_SOURCE[0]:-$0}"
 _atomnova_repo_root="$(cd "$(dirname "$_atomnova_source")/../.." && pwd)"
 
-# Preferred host Node major (override with ATOMNOVA_NODE_MAJOR=24 etc.)
-_atomnova_node_preferred="${ATOMNOVA_NODE_MAJOR:-22}"
+# Preferred host Node major (override with ATOMNOVA_NODE_MAJOR=22 etc.)
+_atomnova_node_preferred="${ATOMNOVA_NODE_MAJOR:-24}"
 
-# --- nvm / host Node (20–24; prefer 22 LTS) ----------------------------------
+# --- nvm / host Node (20–24; prefer 24 to align with Electron 43) ------------
 export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
 if [ -s "$NVM_DIR/nvm.sh" ]; then
   # shellcheck disable=SC1090
@@ -52,9 +52,9 @@ if command -v nvm >/dev/null 2>&1; then
   _node_major="$(node -p "process.versions.node.split('.')[0]" 2>/dev/null || echo 0)"
   if [ "$_node_major" -lt 20 ] || [ "$_node_major" -gt 24 ]; then
     nvm use "$_atomnova_node_preferred" >/dev/null 2>&1 \
+      || nvm use 24 >/dev/null 2>&1 \
       || nvm use 22 >/dev/null 2>&1 \
       || nvm use 20 >/dev/null 2>&1 \
-      || nvm use 24 >/dev/null 2>&1 \
       || true
   fi
 fi
@@ -67,8 +67,9 @@ if [ "$_node_major" -lt 20 ] || [ "$_node_major" -gt 24 ]; then
   return 1 2>/dev/null || exit 1
 fi
 
-# --- Python 3.12 (preferred) or 3.11 + unversioned `python` ------------------
-# Prefer 3.12 for CI/local modernity; keep 3.11 as fallback (still has distutils).
+# --- Python 3.12/3.13 (preferred) or 3.11 + unversioned `python` -------------
+# CI pins 3.12. Prefer 3.12, then 3.13 (setuptools), then 3.11 (stdlib distutils).
+# Cap at 3.13 by default — 3.14 stays out until explicitly requested (ATOMNOVA_PYTHON).
 # Override with ATOMNOVA_PYTHON=/path/to/python3.x
 _python=""
 for _candidate in \
@@ -76,6 +77,9 @@ for _candidate in \
   /usr/local/bin/python3.12 \
   /opt/homebrew/bin/python3.12 \
   "$(command -v python3.12 2>/dev/null || true)" \
+  /usr/local/bin/python3.13 \
+  /opt/homebrew/bin/python3.13 \
+  "$(command -v python3.13 2>/dev/null || true)" \
   /usr/local/bin/python3.11 \
   /opt/homebrew/bin/python3.11 \
   "$(command -v python3.11 2>/dev/null || true)"; do
@@ -86,9 +90,9 @@ for _candidate in \
 done
 
 if [ -z "$_python" ]; then
-  echo "error: Python 3.12 or 3.11 not found (required for node-gyp / native rebuilds)." >&2
-  echo "  brew install python@3.12   # preferred" >&2
-  echo "  # or: brew install python@3.11" >&2
+  echo "error: Python 3.12, 3.13, or 3.11 not found (required for node-gyp / native rebuilds)." >&2
+  echo "  brew install python@3.12   # preferred (CI pin)" >&2
+  echo "  # or: brew install python@3.13 / python@3.11" >&2
   return 1 2>/dev/null || exit 1
 fi
 
@@ -99,6 +103,14 @@ _python_minor="$("$_python" -c 'import sys; print(sys.version_info[1])' 2>/dev/n
 if [ "$_python_major" -ne 3 ] || [ "$_python_minor" -lt 11 ]; then
   echo "error: host Python must be 3.11+ (got $_python_version at $_python)." >&2
   echo "  brew install python@3.12" >&2
+  return 1 2>/dev/null || exit 1
+fi
+
+# Refuse accidental Homebrew 3.14+ unless explicitly overridden via ATOMNOVA_PYTHON.
+if [ -z "${ATOMNOVA_PYTHON:-}" ] && [ "$_python_minor" -ge 14 ]; then
+  echo "error: Python $_python_version is too new for the supported host range (3.11–3.13)." >&2
+  echo "  brew install python@3.12 && export ATOMNOVA_PYTHON=\$(command -v python3.12)" >&2
+  echo "  (or set ATOMNOVA_PYTHON to force a specific interpreter)" >&2
   return 1 2>/dev/null || exit 1
 fi
 
@@ -121,7 +133,7 @@ mkdir -p "$HOME/.local/bin"
 ln -sfn "$_python" "$HOME/.local/bin/python"
 
 # Prefer shim + Homebrew libexec (unversioned names) on PATH. Active major first.
-export PATH="$HOME/.local/bin:/usr/local/opt/python@3.12/libexec/bin:/opt/homebrew/opt/python@3.12/libexec/bin:/usr/local/opt/python@3.11/libexec/bin:/opt/homebrew/opt/python@3.11/libexec/bin:$PATH"
+export PATH="$HOME/.local/bin:/usr/local/opt/python@3.12/libexec/bin:/opt/homebrew/opt/python@3.12/libexec/bin:/usr/local/opt/python@3.13/libexec/bin:/opt/homebrew/opt/python@3.13/libexec/bin:/usr/local/opt/python@3.11/libexec/bin:/opt/homebrew/opt/python@3.11/libexec/bin:$PATH"
 export PYTHON="$_python"
 export npm_config_python="$_python"
 export NODE_GYP_FORCE_PYTHON="$_python"

@@ -1,19 +1,19 @@
 # Plan: modern Node + Python for Chevron
 
-**Status:** Single-branch PR on `chore/toolchain-node-python-upgrade` (push after T4). T1–T2 committed; T3–T4 in progress.  
+**Status:** **T1–T4 complete** on `chore/toolchain-node-python-upgrade` (single PR).  
 **Date:** 2026-07-16  
-**Audience:** session implementing the full T1–T4 toolchain upgrade
+**Audience:** reviewers / future maintainers of the host toolchain
 
-## 1. Baseline (pre-upgrade → post T1–T2)
+## 1. Baseline (pre-upgrade → post T1–T4)
 
-| Layer | Before | After T1–T2 | Where pinned |
+| Layer | Before | After T1–T4 | Where pinned |
 |--------|--------|-------------|--------------|
-| **Host Node (bootstrap/build)** | **16.x** only | **22** (accepted 20–24) | `.nvmrc`, `modern-env.sh`, CI `setup-node` |
-| **Host Python** | **3.11** only | **3.12** (+ setuptools; 3.11 fallback) | `modern-env.sh`, CI `setup-python` |
-| **apm runtime** | **Node 12.14.1** (bundled binary) | `atom-package-manager@2.6.2` under `apm/` |
-| **apm’s npm / node-gyp** | **npm 6 + node-gyp 5** | Patched via `patch-apm-npm.js`, gyp `rU`→`r` for Py3.11 |
-| **script/node_modules node-gyp** | **9.x** (used for Electron ≥20 rebuilds) | `bootstrap-modern` |
-| **App runtime** | **Electron 43.1.0 → Node ~24 inside the app** | `package.json` `electronVersion` |
+| **Host Node (bootstrap/build)** | **16.x** only | **24** (accepted 20–24) | `.nvmrc`, `modern-env.sh`, CI `setup-node` |
+| **Host Python** | **3.11** only | **3.12** CI pin (+ setuptools; 3.13 OK; 3.11 fallback) | `modern-env.sh`, CI `setup-python` |
+| **apm runtime** | **Node 12.14.1** (bundled) | still **Node 12** (install scripts deferred + postinstall under bundled node) | `bootstrap-modern` |
+| **apm’s npm / node-gyp** | **npm 6 + node-gyp 5** | unchanged under apm Node 12 | `patch-apm-npm.js`, gyp `rU`→`r` |
+| **script/node_modules node-gyp** | **9.x** | **9.x** (+ `fs-admin@0.20`) | `bootstrap-modern` |
+| **App runtime** | Electron 43 → Node ~24 | unchanged | `package.json` `electronVersion` |
 
 Important split:
 

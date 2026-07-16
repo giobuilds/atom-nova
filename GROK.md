@@ -30,7 +30,7 @@ Context for the next Grok (or human) session working on this repo.
 Stock `./script/bootstrap` fails on modern macOS (Node 24, Python 3.14, dead atom.io headers). Working path:
 
 ```bash
-nvm use                 # .nvmrc → 22
+nvm use                 # .nvmrc → 24
 ./script/bootstrap-modern
 ./script/with-modern-env ./script/build --no-bootstrap
 open "out/Atom Dev.app"   # still named Atom Dev (channel-based)
@@ -38,14 +38,14 @@ open "out/Atom Dev.app"   # still named Atom Dev (channel-based)
 
 | Artifact | Role |
 |----------|------|
-| `.nvmrc` | Pins **Node 22** (host bootstrap; not Electron runtime) |
-| `script/lib/modern-env.sh` | Node 20–24 (prefer 22), Python 3.12 (3.11 fallback), `ATOM_ELECTRON_URL`, gyp `rU` patch helper |
+| `.nvmrc` | Pins **Node 24** (host bootstrap; matches Electron 43 major story) |
+| `script/lib/modern-env.sh` | Node 20–24 (prefer 24), Python 3.12/3.13 (3.11 fallback), `ATOM_ELECTRON_URL`, gyp `rU` patch helper |
 | `script/with-modern-env` | Run any command with modern env |
-| `script/bootstrap-modern` | Full dep install with apm Node-12 ABI targeting + patches |
+| `script/bootstrap-modern` | Full dep install with apm Node-12 postinstall isolation + patches |
 | `docs/bootstrap-report.md` | Failure ladder + rules |
 | `README.md` | AtomNova intro + modern build docs |
 
-**Host prerequisites:** nvm Node **22** (accepted 20–24), Python **3.12** (preferred; 3.11 still OK) with `setuptools` on 3.12+, `~/.local/bin/python` shim (created by `modern-env`), `ATOM_ELECTRON_URL=https://www.electronjs.org/headers`. apm still runs on **bundled Node 12** for package install.
+**Host prerequisites:** nvm Node **24** (accepted 20–24), Python **3.12** (CI pin; 3.13 OK; 3.11 fallback) with `setuptools` on 3.12+, `~/.local/bin/python` shim (created by `modern-env`), `ATOM_ELECTRON_URL=https://www.electronjs.org/headers`. apm still runs on **bundled Node 12** for package install.
 
 ### Runtime fixes
 
@@ -187,9 +187,9 @@ Suggested order:
 
 | Landmine | Mitigation |
 |----------|------------|
-| Host Node outside 20–24 | `nvm use` / `.nvmrc` → **22**; do not use system Node 24 for *bootstrap* unless in range |
-| Python too new / no distutils | Prefer **3.12** + `pip install setuptools`; **3.11** still works; avoid 3.14 until T4 |
-| apm MODULE_VERSION vs host | apm install targets **Node 12.14.1**; Electron natives rebuild separately |
+| Host Node outside 20–24 | `nvm use` / `.nvmrc` → **24** |
+| Python too new / no distutils | Prefer **3.12** (+ **3.13** OK) with `setuptools`; **3.11** fallback; refuse bare 3.14 unless `ATOMNOVA_PYTHON` |
+| apm MODULE_VERSION vs host | apm postinstall rebuild under **bundled Node 12**; Electron natives rebuild separately |
 | `atom.io/download/electron` dead | `ATOM_ELECTRON_URL=https://www.electronjs.org/headers` |
 | Snapshot without less prebuild | Full `script/build` only |
 | `superstring@2.4.4` vs Electron 14+ | Vendored `packages/superstring` with `GetBackingStore` patch (`2.4.4-atomnova.1`) |
