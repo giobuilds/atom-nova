@@ -65,7 +65,7 @@ console.log('Script dependencies installed.');
 NODE
 
 # Patch gyp that just landed under script/node_modules
-echo "Patching node-gyp (script) for Python 3.11…"
+echo "Patching node-gyp (script) for Python 3.11+ (rU→r)…"
 atomnova_patch_node_gyp "$REPO_ROOT/script"
 
 # --- Step 2: install apm, targeting apm's bundled Node 12 ABI ----------------
@@ -91,7 +91,7 @@ NODE
 )
 
 # Nested gyp under apm (used by postinstall rebuild with bundled Node)
-echo "Patching node-gyp (apm) for Python 3.11…"
+echo "Patching node-gyp (apm) for Python 3.11+ (rU→r)…"
 atomnova_patch_node_gyp "$REPO_ROOT/apm"
 
 # npm 6 devDependencies-without-dependencies crash (npm/npm#19877)

@@ -10,13 +10,15 @@ Verified after clean `apm install` with correct env: critical natives present (`
 
 ## Working toolchain (use this)
 
+> **T1 update (2026-07):** prefer **Python 3.12** + `pip install setuptools` (distutils). Python **3.11** remains a supported fallback. Host **Node stays 16** until Phase T2. See `docs/toolchain-node-python-upgrade-plan.md`.
+
 | Item | Required value |
 |------|----------------|
 | Host | macOS 13.7.8 (x86_64), Apple clang 14.0.3, Command Line Tools |
 | Node (host / scripts) | **16.20.2 via nvm** (not system Node 24) |
-| Python | **3.11.15** (`/usr/local/bin/python3.11`) — not 3.14 |
-| Unversioned `python` | symlink → python3.11 (e.g. `~/.local/bin/python` on PATH) |
-| C++ | `CXXFLAGS=-std=c++14` |
+| Python | **3.12** preferred (`setuptools` required); **3.11** fallback — not 3.14 |
+| Unversioned `python` | shim → selected interpreter (`modern-env` creates `~/.local/bin/python`) |
+| C++ | set by `modern-env` from Electron major (`-std=c++17` / `gnu++20`) |
 | Electron headers | `ATOM_ELECTRON_URL=https://www.electronjs.org/headers` |
 | node-gyp patch | replace `open(..., 'rU')` → `'r'` in vendored gyp `input.py` |
 
@@ -27,15 +29,14 @@ export NVM_DIR="$HOME/.nvm"
 . "$NVM_DIR/nvm.sh"
 nvm use 16
 
-# Python 3.11 + unversioned `python` for old Makefiles
-export PATH="$HOME/.local/bin:/usr/local/opt/python@3.11/libexec/bin:$PATH"
-export PYTHON=/usr/local/bin/python3.11
-export npm_config_python=/usr/local/bin/python3.11
-export NODE_GYP_FORCE_PYTHON=/usr/local/bin/python3.11
-
-# C++14 for Node/Electron headers on modern clang
-export CXXFLAGS="-std=c++14"
-export npm_config_cxxflags="-std=c++14"
+# Prefer: source modern-env (selects Python 3.12 → 3.11, sets shim + CXXFLAGS)
+#   . script/lib/modern-env.sh
+# Manual fallback (3.12 example):
+export PATH="$HOME/.local/bin:/usr/local/opt/python@3.12/libexec/bin:$PATH"
+export PYTHON=/usr/local/bin/python3.12
+export npm_config_python=/usr/local/bin/python3.12
+export NODE_GYP_FORCE_PYTHON=/usr/local/bin/python3.12
+# On 3.12+: python3.12 -m pip install setuptools
 
 # atom.io electron download is dead (redirects to sunset blog)
 export ATOM_ELECTRON_URL="https://www.electronjs.org/headers"
@@ -46,8 +47,8 @@ export ATOM_RESOURCE_PATH="$(pwd)"
 #     -exec sed -i '' "s/'rU'/'r'/g" {} +
 ```
 
-Install Python 3.11 once: `brew install python@3.11`  
-Create shim once: `ln -sfn /usr/local/bin/python3.11 ~/.local/bin/python`
+Install Python once: `brew install python@3.12 && python3.12 -m pip install setuptools`  
+(or `brew install python@3.11`). Shim is created by `script/lib/modern-env.sh`.
 
 ---
 
@@ -143,7 +144,7 @@ Even with Node 16 on PATH, plain bootstrap will fail unless you also provide:
 
 | Script | Purpose |
 |--------|---------|
-| `script/lib/modern-env.sh` | Shared env (Node 16, Python 3.11, C++14, Electron headers URL, gyp patch helper) |
+| `script/lib/modern-env.sh` | Shared env (Node 16, Python 3.12/3.11, Electron headers URL, gyp patch helper) |
 | `script/with-modern-env` | Run any command with that env |
 | `script/bootstrap-modern` | Full dependency install with patches / apm ABI targeting |
 

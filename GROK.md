@@ -39,13 +39,13 @@ open "out/Atom Dev.app"   # still named Atom Dev (channel-based)
 | Artifact | Role |
 |----------|------|
 | `.nvmrc` | Pins **Node 16** |
-| `script/lib/modern-env.sh` | Node 16, Python 3.11, C++14, `ATOM_ELECTRON_URL`, gyp `rU` patch helper |
+| `script/lib/modern-env.sh` | Node 16, Python 3.12 (3.11 fallback), `ATOM_ELECTRON_URL`, gyp `rU` patch helper |
 | `script/with-modern-env` | Run any command with modern env |
 | `script/bootstrap-modern` | Full dep install with apm Node-12 ABI targeting + patches |
 | `docs/bootstrap-report.md` | Failure ladder + rules |
 | `README.md` | AtomNova intro + modern build docs |
 
-**Host prerequisites that worked:** nvm Node 16.20.2, Homebrew Python 3.11, `~/.local/bin/python` → python3.11, `CXXFLAGS=-std=c++14`, `ATOM_ELECTRON_URL=https://www.electronjs.org/headers`.
+**Host prerequisites:** nvm Node 16.20.2, Python **3.12** (preferred; 3.11 still OK) with `setuptools` on 3.12+, `~/.local/bin/python` shim (created by `modern-env`), `ATOM_ELECTRON_URL=https://www.electronjs.org/headers`.
 
 ### Runtime fixes
 
@@ -188,7 +188,7 @@ Suggested order:
 | Landmine | Mitigation |
 |----------|------------|
 | Node ≠ 16 for bootstrap | `nvm use` / `.nvmrc` |
-| Python ≥ 3.12 | Use 3.11 + `python` shim |
+| Python too new / no distutils | Prefer **3.12** + `pip install setuptools`; **3.11** still works; avoid 3.14 until T4 |
 | `atom.io/download/electron` dead | `ATOM_ELECTRON_URL=https://www.electronjs.org/headers` |
 | Snapshot without less prebuild | Full `script/build` only |
 | `superstring@2.4.4` vs Electron 14+ | Vendored `packages/superstring` with `GetBackingStore` patch (`2.4.4-atomnova.1`) |
