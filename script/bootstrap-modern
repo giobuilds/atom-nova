@@ -65,19 +65,17 @@ console.log('Script dependencies installed.');
 NODE
 
 # Patch gyp that just landed under script/node_modules
-echo "Patching node-gyp (script) for Python 3.11…"
+echo "Patching node-gyp (script) for Python 3.11+ (rU→r)…"
 atomnova_patch_node_gyp "$REPO_ROOT/script"
 
-# --- Step 2: install apm, targeting apm's bundled Node 12 ABI ----------------
-echo "Installing apm (natives targeted at Node 12.14.1)…"
+# --- Step 2: install apm under host Node; run Node-12-native postinstall -----
+# Host Node 20+ freezes process.config; apm's nested node-gyp 5 crashes with
+# "Cannot assign to read only property 'cflags'" when *host* Node runs the
+# install scripts. Skip scripts during npm install, then run apm's postinstall
+# pieces under its *bundled* Node 12 (download-node + npm rebuild).
+echo "Installing apm (scripts deferred; Node-12 postinstall after)…"
 (
-  # apm embeds Node 12.14.1; first compile pass must match that ABI
-  export npm_config_target=12.14.1
-  export npm_config_arch="${npm_config_arch:-$(node -p "process.arch")}"
-  export npm_config_disturl=https://nodejs.org/dist
-  export npm_config_runtime=node
-  export npm_config_build_from_source=true
-
+  export npm_config_ignore_scripts=true
   node <<'NODE'
 'use strict';
 const installApm = require('./script/lib/install-apm');
@@ -89,22 +87,55 @@ process.on('unhandledRejection', e => {
 installApm(ci);
 NODE
 )
+unset npm_config_ignore_scripts || true
+
+APM_PKG="$REPO_ROOT/apm/node_modules/atom-package-manager"
+APM_NODE="$APM_PKG/bin/node"
+APM_NPM="$APM_PKG/bin/npm"
+APM_GYP="$APM_PKG/node_modules/npm/node_modules/node-gyp/bin/node-gyp.js"
+ONIG="$APM_PKG/node_modules/oniguruma"
+# first-mate also nests oniguruma; git-utils/keytar may need rebuild under apm
+MODERN_GYP="$REPO_ROOT/script/node_modules/.bin/node-gyp"
 
 # Nested gyp under apm (used by postinstall rebuild with bundled Node)
-echo "Patching node-gyp (apm) for Python 3.11…"
+echo "Patching node-gyp (apm) for Python 3.11+ (rU→r)…"
 atomnova_patch_node_gyp "$REPO_ROOT/apm"
 
 # npm 6 devDependencies-without-dependencies crash (npm/npm#19877)
 echo "Patching apm's bundled npm (update-package-json)…"
 node "$SCRIPT_DIR/lib/patch-apm-npm.js" "$REPO_ROOT"
 
-# If apm postinstall left natives half-built, rebuild oniguruma with apm's node
-APM_NODE="$REPO_ROOT/apm/node_modules/atom-package-manager/bin/node"
-APM_GYP="$REPO_ROOT/apm/node_modules/atom-package-manager/node_modules/npm/node_modules/node-gyp/bin/node-gyp.js"
-ONIG="$REPO_ROOT/apm/node_modules/atom-package-manager/node_modules/oniguruma"
-if [ -x "$APM_NODE" ] && [ -f "$APM_GYP" ] && [ -d "$ONIG" ] && [ ! -f "$ONIG/build/Release/onig_scanner.node" ]; then
-  echo "Rebuilding oniguruma with apm bundled Node…"
-  (cd "$ONIG" && "$APM_NODE" "$APM_GYP" rebuild) || true
+# Download apm's bundled Node 12 and rebuild its natives under that binary.
+# Equivalent to atom-package-manager's script/postinstall.sh, but ordered so
+# gyp is patched first and host Node never drives node-gyp 5.
+if [ -d "$APM_PKG" ]; then
+  if [ ! -x "$APM_NODE" ]; then
+    echo "Downloading apm bundled Node 12…"
+    (cd "$APM_PKG" && node script/download-node.js)
+  fi
+  if [ -x "$APM_NODE" ] && [ -x "$APM_NPM" ]; then
+    echo "Rebuilding apm dependencies with bundled Node $($APM_NODE -p "process.version")…"
+    # Clear host-toolchain npm_config_* that would confuse Node-12 rebuilds
+    (
+      unset npm_config_target npm_config_runtime npm_config_disturl \
+            npm_config_build_from_source npm_config_arch npm_config_node_gyp || true
+      export npm_config_python="${PYTHON:-}"
+      export NODE_GYP_FORCE_PYTHON="${PYTHON:-}"
+      cd "$APM_PKG" && ./bin/npm rebuild
+    ) || {
+      echo "apm npm rebuild failed; trying oniguruma only…"
+      if [ -d "$ONIG" ] && [ -f "$APM_GYP" ]; then
+        (cd "$ONIG" && "$APM_NODE" "$APM_GYP" rebuild) || true
+      elif [ -d "$ONIG" ] && [ -x "$MODERN_GYP" ]; then
+        (cd "$ONIG" && "$MODERN_GYP" rebuild \
+          --target=12.14.1 \
+          --dist-url=https://nodejs.org/dist \
+          --arch="$(node -p "process.arch")") || true
+      fi
+    }
+  else
+    echo "WARNING: apm bundled Node missing after download; apm may not run."
+  fi
 fi
 
 # --- Step 3: apm --version ---------------------------------------------------

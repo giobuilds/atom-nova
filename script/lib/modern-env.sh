@@ -4,10 +4,19 @@
 # Or use:            script/with-modern-env <command...>
 #
 # Requirements (install once):
-#   - nvm + Node 16:  nvm install 16 && nvm use 16
-#   - Python 3.11:    brew install python@3.11   (macOS)
-#   - python shim:    ln -sfn "$(command -v python3.11)" ~/.local/bin/python
+#   - nvm + Node 24 (matches Electron 43 host story):  nvm install 24 && nvm use 24
+#     (accepted host range: Node 20–24; default pin is 24)
+#   - Python 3.12 (CI preferred) or 3.13 / 3.11:
+#       brew install python@3.12   (macOS)
+#       # or: brew install python@3.13 / python@3.11
+#   - For Python 3.12+: pip install setuptools  (provides distutils for node-gyp)
+#   - python shim:    created automatically under ~/.local/bin/python
 #   - Xcode CLT / build-essential for native modules
+#
+# Layering (do not conflate):
+#   Host Node (here)  → script/*, CI, modern node-gyp for Electron rebuilds
+#   apm Node 12       → package install via apm's bundled binary (until apm replaced)
+#   Electron Node     → runtime only (already modern; not this file)
 
 # Idempotent: safe to source multiple times
 _atomnova_modern_env_loaded=${_atomnova_modern_env_loaded:-0}
@@ -19,7 +28,10 @@ fi
 _atomnova_source="${BASH_SOURCE[0]:-$0}"
 _atomnova_repo_root="$(cd "$(dirname "$_atomnova_source")/../.." && pwd)"
 
-# --- nvm / Node 16 -----------------------------------------------------------
+# Preferred host Node major (override with ATOMNOVA_NODE_MAJOR=22 etc.)
+_atomnova_node_preferred="${ATOMNOVA_NODE_MAJOR:-24}"
+
+# --- nvm / host Node (20–24; prefer 24 to align with Electron 43) ------------
 export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
 if [ -s "$NVM_DIR/nvm.sh" ]; then
   # shellcheck disable=SC1090
@@ -33,45 +45,98 @@ elif [ -s "/opt/homebrew/opt/nvm/nvm.sh" ]; then
 fi
 
 if command -v nvm >/dev/null 2>&1; then
-  nvm use 16 >/dev/null 2>&1 || nvm use 16
+  # Prefer .nvmrc when present, then preferred major, then any installed 20–24.
+  if [ -f "$_atomnova_repo_root/.nvmrc" ]; then
+    nvm use >/dev/null 2>&1 || true
+  fi
+  _node_major="$(node -p "process.versions.node.split('.')[0]" 2>/dev/null || echo 0)"
+  if [ "$_node_major" -lt 20 ] || [ "$_node_major" -gt 24 ]; then
+    nvm use "$_atomnova_node_preferred" >/dev/null 2>&1 \
+      || nvm use 24 >/dev/null 2>&1 \
+      || nvm use 22 >/dev/null 2>&1 \
+      || nvm use 20 >/dev/null 2>&1 \
+      || true
+  fi
 fi
 
 _node_major="$(node -p "process.versions.node.split('.')[0]" 2>/dev/null || echo 0)"
-if [ "$_node_major" -lt 14 ] || [ "$_node_major" -ge 18 ]; then
-  echo "error: host Node must be 14.x–16.x (got $(node -v 2>/dev/null || echo none))." >&2
-  echo "  nvm install 16 && nvm use 16" >&2
+if [ "$_node_major" -lt 20 ] || [ "$_node_major" -gt 24 ]; then
+  echo "error: host Node must be 20.x–24.x (got $(node -v 2>/dev/null || echo none))." >&2
+  echo "  nvm install $_atomnova_node_preferred && nvm use $_atomnova_node_preferred" >&2
+  echo "  (apm still uses its bundled Node 12 for install; this is host tooling only.)" >&2
   return 1 2>/dev/null || exit 1
 fi
 
-# --- Python 3.11 + unversioned `python` --------------------------------------
-_python311=""
+# --- Python 3.12/3.13 (preferred) or 3.11 + unversioned `python` -------------
+# CI pins 3.12. Prefer 3.12, then 3.13 (setuptools), then 3.11 (stdlib distutils).
+# Cap at 3.13 by default — 3.14 stays out until explicitly requested (ATOMNOVA_PYTHON).
+# Override with ATOMNOVA_PYTHON=/path/to/python3.x
+_python=""
 for _candidate in \
   "${ATOMNOVA_PYTHON:-}" \
+  /usr/local/bin/python3.12 \
+  /opt/homebrew/bin/python3.12 \
+  "$(command -v python3.12 2>/dev/null || true)" \
+  /usr/local/bin/python3.13 \
+  /opt/homebrew/bin/python3.13 \
+  "$(command -v python3.13 2>/dev/null || true)" \
   /usr/local/bin/python3.11 \
   /opt/homebrew/bin/python3.11 \
   "$(command -v python3.11 2>/dev/null || true)"; do
   if [ -n "$_candidate" ] && [ -x "$_candidate" ]; then
-    _python311="$_candidate"
+    _python="$_candidate"
     break
   fi
 done
 
-if [ -z "$_python311" ]; then
-  echo "error: Python 3.11 not found (required; Python 3.12+ removed distutils for old node-gyp)." >&2
-  echo "  brew install python@3.11" >&2
+if [ -z "$_python" ]; then
+  echo "error: Python 3.12, 3.13, or 3.11 not found (required for node-gyp / native rebuilds)." >&2
+  echo "  brew install python@3.12   # preferred (CI pin)" >&2
+  echo "  # or: brew install python@3.13 / python@3.11" >&2
   return 1 2>/dev/null || exit 1
 fi
 
-mkdir -p "$HOME/.local/bin"
-if [ ! -e "$HOME/.local/bin/python" ]; then
-  ln -sfn "$_python311" "$HOME/.local/bin/python"
+_python_version="$("$_python" -c 'import sys; print("%d.%d" % sys.version_info[:2])' 2>/dev/null || echo unknown)"
+_python_major="$("$_python" -c 'import sys; print(sys.version_info[0])' 2>/dev/null || echo 0)"
+_python_minor="$("$_python" -c 'import sys; print(sys.version_info[1])' 2>/dev/null || echo 0)"
+
+if [ "$_python_major" -ne 3 ] || [ "$_python_minor" -lt 11 ]; then
+  echo "error: host Python must be 3.11+ (got $_python_version at $_python)." >&2
+  echo "  brew install python@3.12" >&2
+  return 1 2>/dev/null || exit 1
 fi
 
-# Prefer shim + Homebrew python@3.11 libexec (unversioned names) on PATH
-export PATH="$HOME/.local/bin:/usr/local/opt/python@3.11/libexec/bin:/opt/homebrew/opt/python@3.11/libexec/bin:$PATH"
-export PYTHON="$_python311"
-export npm_config_python="$_python311"
-export NODE_GYP_FORCE_PYTHON="$_python311"
+# Refuse accidental Homebrew 3.14+ unless explicitly overridden via ATOMNOVA_PYTHON.
+if [ -z "${ATOMNOVA_PYTHON:-}" ] && [ "$_python_minor" -ge 14 ]; then
+  echo "error: Python $_python_version is too new for the supported host range (3.11–3.13)." >&2
+  echo "  brew install python@3.12 && export ATOMNOVA_PYTHON=\$(command -v python3.12)" >&2
+  echo "  (or set ATOMNOVA_PYTHON to force a specific interpreter)" >&2
+  return 1 2>/dev/null || exit 1
+fi
+
+# Python 3.12+ removed stdlib distutils; setuptools provides the compatibility
+# shim that node-gyp still imports. Fail early with an actionable message.
+if [ "$_python_minor" -ge 12 ]; then
+  if ! "$_python" -c 'import distutils' >/dev/null 2>&1; then
+    echo "error: Python $_python_version has no distutils (removed from stdlib)." >&2
+    echo "  Install setuptools for this interpreter (CI uses plain pip):" >&2
+    echo "    \"$_python\" -m pip install setuptools" >&2
+    echo "  On Homebrew (PEP 668 externally-managed):" >&2
+    echo "    \"$_python\" -m pip install --break-system-packages setuptools" >&2
+    return 1 2>/dev/null || exit 1
+  fi
+fi
+
+# Always point the unversioned shim at the selected interpreter so old Makefiles
+# (`env python`) and node-gyp discovery stay consistent with PYTHON/NODE_GYP_*.
+mkdir -p "$HOME/.local/bin"
+ln -sfn "$_python" "$HOME/.local/bin/python"
+
+# Prefer shim + Homebrew libexec (unversioned names) on PATH. Active major first.
+export PATH="$HOME/.local/bin:/usr/local/opt/python@3.12/libexec/bin:/opt/homebrew/opt/python@3.12/libexec/bin:/usr/local/opt/python@3.13/libexec/bin:/opt/homebrew/opt/python@3.13/libexec/bin:/usr/local/opt/python@3.11/libexec/bin:/opt/homebrew/opt/python@3.11/libexec/bin:$PATH"
+export PYTHON="$_python"
+export npm_config_python="$_python"
+export NODE_GYP_FORCE_PYTHON="$_python"
 
 # --- C++ standard / toolchain for Node/Electron headers ----------------------
 # Electron 20+ headers build with gnu++17, Electron 29+ with gnu++20; forcing
@@ -120,8 +185,8 @@ export GIT_CONFIG_VALUE_0="git://github.com/"
 # --- Patch old node-gyp: open(..., 'rU') removed in Python 3.11 --------------
 atomnova_patch_node_gyp() {
   local root="${1:-$_atomnova_repo_root}"
-  # Use host python3.11 to edit files; do not depend on repo node_modules
-  "$_python311" - "$root" <<'PY'
+  # Use selected host python to edit files; do not depend on repo node_modules
+  "$_python" - "$root" <<'PY'
 import sys
 from pathlib import Path
 
