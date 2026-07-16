@@ -1,15 +1,15 @@
 # Plan: modern Node + Python for Chevron
 
-**Status:** Single-branch PR on `chore/toolchain-node-python-upgrade` (push after T4). T1–T2 committed; T3–T4 next.  
+**Status:** Single-branch PR on `chore/toolchain-node-python-upgrade` (push after T4). T1–T2 committed; T3–T4 in progress.  
 **Date:** 2026-07-16  
 **Audience:** session implementing the full T1–T4 toolchain upgrade
 
-## 1. Current baseline
+## 1. Baseline (pre-upgrade → post T1–T2)
 
-| Layer | Today | Where pinned |
-|--------|--------|----------------|
-| **Host Node (bootstrap/build)** | **16.x** only | `.nvmrc` (`16`), `script/lib/modern-env.sh` (`nvm use 16`, rejects ≥18), CI `setup-node` → `16` |
-| **Host Python** | **3.11** only | `modern-env.sh`, CI `setup-python` → `3.11`, docs (`distutils` + old node-gyp) |
+| Layer | Before | After T1–T2 | Where pinned |
+|--------|--------|-------------|--------------|
+| **Host Node (bootstrap/build)** | **16.x** only | **22** (accepted 20–24) | `.nvmrc`, `modern-env.sh`, CI `setup-node` |
+| **Host Python** | **3.11** only | **3.12** (+ setuptools; 3.11 fallback) | `modern-env.sh`, CI `setup-python` |
 | **apm runtime** | **Node 12.14.1** (bundled binary) | `atom-package-manager@2.6.2` under `apm/` |
 | **apm’s npm / node-gyp** | **npm 6 + node-gyp 5** | Patched via `patch-apm-npm.js`, gyp `rU`→`r` for Py3.11 |
 | **script/node_modules node-gyp** | **9.x** (used for Electron ≥20 rebuilds) | `bootstrap-modern` |

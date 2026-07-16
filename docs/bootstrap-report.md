@@ -200,7 +200,7 @@ No `about.less` / `TypeError`; natives load from asar.unpacked; metrics “Opt o
 
 | Migration item | Status after this work |
 |----------------|------------------------|
-| Node version for builds | **Wrapper pins Node 16** |
+| Node version for builds | **Wrapper pins Node 22** (accepted 20–24; apm stays on Node 12) |
 | Native modules / build tools | **Unblocked** via `bootstrap-modern` |
 | apm backend | **Runs** with `ATOM_ELECTRON_URL` |
 | Launch validation | **Packaged UI loads** after full rebuild + theme-manager harden |

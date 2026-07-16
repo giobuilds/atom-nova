@@ -52,8 +52,10 @@ jobs:
             ~/Library/Caches/electron
             ~/.npm
             ~/.atom/.apm
-          key: ${{ runner.os }}-electron-${{ hashFiles('package.json', 'package-lock.json', 'script/package.json') }}
+          # Include host toolchain majors so Node/Python bumps do not reuse stale gyp caches.
+          key: ${{ runner.os }}-node22-py312-electron-${{ hashFiles('package.json', 'package-lock.json', 'script/package.json', 'script/package-lock.json') }}
           restore-keys: |
+            ${{ runner.os }}-node22-py312-electron-
             ${{ runner.os }}-electron-
 
       - name: Bootstrap

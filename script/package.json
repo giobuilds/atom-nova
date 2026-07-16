@@ -1,6 +1,9 @@
 {
   "name": "atom-build-scripts",
   "description": "Atom build scripts",
+  "engines": {
+    "node": ">=20 <=24"
+  },
   "dependencies": {
     "7zip-bin": "^4.0.2",
     "@atom/electron-winstaller": "0.0.1",
