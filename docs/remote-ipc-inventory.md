@@ -332,8 +332,10 @@ Packages: document `atomNova` (or keep `atom` APIs that already abstract Electro
 
 ### Recommended next actions
 
-1. ~~**Electron 18** ladder rung~~ **done 2026-07-14** (18.3.15); next rung 22.  
-2. Phase N: reduce package reliance on Node in preload; evaluate sandbox for guest content.
+1. ~~**Electron ladder to current stable**~~ **done** (43.1.0).  
+2. ~~**IPC trust boundary**~~ **done** (scheme filter, drop webContents `executeJavaScript` IPC, lock worker prefs).  
+3. ~~**Phase N2 package shell IPC**~~ **done 2026-07-16** — settings-view / github `openExternal`, tree-view show-in-folder + trash + DND; see `docs/security-phase-n2.md`.  
+4. **Phase N (continued):** fuzzy-finder Task/ripgrep ownership; bulk package `fs`; preload privilege shrink; guest sandbox (Phase S).
 
 ---
 

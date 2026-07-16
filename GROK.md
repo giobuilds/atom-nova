@@ -157,7 +157,9 @@ Suggested order:
    - **Inventory:** `docs/remote-ipc-inventory.md`  
    - **P0–P4 done:** no `@electron/remote`; IPC `remote-compat`  
    - **Preload + contextIsolation done:** page has no Node; `static/preload.js` boots Atom; custom elements use `create-custom-element.js`  
-   - Next: Electron 18; then Phase N (narrow package Node surface / sandbox where possible)
+   - **IPC trust boundary:** `openExternal` scheme allowlist; webContents eval blocked; worker prefs locked  
+   - **Phase N2:** package `shell.openExternal` / show-in-folder / trash via `ApplicationDelegate` IPC; tree-view DND off `remote` — see `docs/security-phase-n2.md`  
+   - **Next Phase N:** fuzzy-finder crawl service design; shrink bulk package `fs` / preload privilege
 4. **Native modules + CI**  
    - Rebuild against each Electron ABI  
    - GitHub Actions for bootstrap/build/test on modern OS  
