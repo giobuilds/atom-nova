@@ -332,10 +332,11 @@ Packages: document `atomNova` (or keep `atom` APIs that already abstract Electro
 
 ### Recommended next actions
 
-1. ~~**Electron ladder to current stable**~~ **done** (43.1.0).  
-2. ~~**IPC trust boundary**~~ **done** (scheme filter, drop webContents `executeJavaScript` IPC, lock worker prefs).  
-3. ~~**Phase N2 package shell IPC**~~ **done 2026-07-16** — settings-view / github `openExternal`, tree-view show-in-folder + trash + DND; see `docs/security-phase-n2.md`.  
-4. **Phase N (continued):** fuzzy-finder Task/ripgrep ownership; bulk package `fs`; preload privilege shrink; guest sandbox (Phase S).
+1. ~~**Electron ladder to current stable**~~ **done** (43.1.0 as of 2026-07-14).  
+2. ~~**IPC trust boundary hardening**~~ **done** (scheme filter, drop webContents `executeJavaScript` IPC, lock worker prefs).  
+3. ~~**Packaged github worker assets**~~ **done** — asar unpack includes `github/lib/**` for `file://` workers.  
+4. **Phase N** (active): narrow package Node surface / policy — see **`docs/security-phase-n.md`**.  
+5. Phase S later: sandbox guest content; core editor sandbox blocked on in-process natives.
 
 ---
 
