@@ -4,13 +4,19 @@
 # Or use:            script/with-modern-env <command...>
 #
 # Requirements (install once):
-#   - nvm + Node 16:  nvm install 16 && nvm use 16
+#   - nvm + Node 22 LTS:  nvm install 22 && nvm use 22
+#     (accepted host range: Node 20–24; default pin is 22)
 #   - Python 3.12 (preferred) or 3.11:
 #       brew install python@3.12   (macOS)
 #       # or: brew install python@3.11
 #   - For Python 3.12+: pip install setuptools  (provides distutils for node-gyp)
 #   - python shim:    created automatically under ~/.local/bin/python
 #   - Xcode CLT / build-essential for native modules
+#
+# Layering (do not conflate):
+#   Host Node (here)  → script/*, CI, modern node-gyp for Electron rebuilds
+#   apm Node 12       → package install via apm's bundled binary (until apm replaced)
+#   Electron Node     → runtime only (already modern; not this file)
 
 # Idempotent: safe to source multiple times
 _atomnova_modern_env_loaded=${_atomnova_modern_env_loaded:-0}
@@ -22,7 +28,10 @@ fi
 _atomnova_source="${BASH_SOURCE[0]:-$0}"
 _atomnova_repo_root="$(cd "$(dirname "$_atomnova_source")/../.." && pwd)"
 
-# --- nvm / Node 16 -----------------------------------------------------------
+# Preferred host Node major (override with ATOMNOVA_NODE_MAJOR=24 etc.)
+_atomnova_node_preferred="${ATOMNOVA_NODE_MAJOR:-22}"
+
+# --- nvm / host Node (20–24; prefer 22 LTS) ----------------------------------
 export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
 if [ -s "$NVM_DIR/nvm.sh" ]; then
   # shellcheck disable=SC1090
@@ -36,13 +45,25 @@ elif [ -s "/opt/homebrew/opt/nvm/nvm.sh" ]; then
 fi
 
 if command -v nvm >/dev/null 2>&1; then
-  nvm use 16 >/dev/null 2>&1 || nvm use 16
+  # Prefer .nvmrc when present, then preferred major, then any installed 20–24.
+  if [ -f "$_atomnova_repo_root/.nvmrc" ]; then
+    nvm use >/dev/null 2>&1 || true
+  fi
+  _node_major="$(node -p "process.versions.node.split('.')[0]" 2>/dev/null || echo 0)"
+  if [ "$_node_major" -lt 20 ] || [ "$_node_major" -gt 24 ]; then
+    nvm use "$_atomnova_node_preferred" >/dev/null 2>&1 \
+      || nvm use 22 >/dev/null 2>&1 \
+      || nvm use 20 >/dev/null 2>&1 \
+      || nvm use 24 >/dev/null 2>&1 \
+      || true
+  fi
 fi
 
 _node_major="$(node -p "process.versions.node.split('.')[0]" 2>/dev/null || echo 0)"
-if [ "$_node_major" -lt 14 ] || [ "$_node_major" -ge 18 ]; then
-  echo "error: host Node must be 14.x–16.x (got $(node -v 2>/dev/null || echo none))." >&2
-  echo "  nvm install 16 && nvm use 16" >&2
+if [ "$_node_major" -lt 20 ] || [ "$_node_major" -gt 24 ]; then
+  echo "error: host Node must be 20.x–24.x (got $(node -v 2>/dev/null || echo none))." >&2
+  echo "  nvm install $_atomnova_node_preferred && nvm use $_atomnova_node_preferred" >&2
+  echo "  (apm still uses its bundled Node 12 for install; this is host tooling only.)" >&2
   return 1 2>/dev/null || exit 1
 fi
 

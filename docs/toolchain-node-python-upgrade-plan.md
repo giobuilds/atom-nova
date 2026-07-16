@@ -1,6 +1,6 @@
 # Plan: modern Node + Python for Chevron
 
-**Status:** Single-branch PR plan on `chore/toolchain-node-python-upgrade` (push after T4). T1 done; T2–T4 in progress.  
+**Status:** Single-branch PR on `chore/toolchain-node-python-upgrade` (push after T4). T1–T2 committed; T3–T4 next.  
 **Date:** 2026-07-16  
 **Audience:** session implementing the full T1–T4 toolchain upgrade
 
