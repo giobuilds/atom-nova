@@ -229,6 +229,21 @@ async function probeWindow() {
   }
 }
 
+function linuxNeedsNoSandbox(binaryPath) {
+  if (process.platform !== 'linux') return false;
+  // Chromium aborts if chrome-sandbox exists but is not root-owned mode 4755
+  // (common for unpackaged out/ builds and non-root CI). Use --no-sandbox then.
+  const sandbox = path.join(path.dirname(binaryPath), 'chrome-sandbox');
+  try {
+    const st = fs.statSync(sandbox);
+    const isSuid = (st.mode & 0o4000) !== 0;
+    const isRoot = st.uid === 0;
+    return !(isSuid && isRoot);
+  } catch (error) {
+    return true;
+  }
+}
+
 async function main() {
   const binary = findAppBinary(process.argv[2]);
   console.log(`smoke-test: launching ${binary}`);
@@ -247,20 +262,22 @@ async function main() {
   fs.writeFileSync(probes.ts, 'const n: number = 1;\n');
   fs.writeFileSync(probes.css, 'body { color: red; }\n');
 
-  const app = childProcess.spawn(
-    binary,
-    [
-      `--remote-debugging-port=${PORT}`,
-      '--user-data-dir=' + path.join(atomHome, 'electronUserData'),
-      probes.txt,
-      probes.ts,
-      probes.css
-    ],
-    {
-      env: Object.assign({}, process.env, { ATOM_HOME: atomHome }),
-      stdio: ['ignore', 'pipe', 'pipe']
-    }
-  );
+  const launchArgs = [
+    `--remote-debugging-port=${PORT}`,
+    '--user-data-dir=' + path.join(atomHome, 'electronUserData')
+  ];
+  if (linuxNeedsNoSandbox(binary)) {
+    console.log(
+      'smoke-test: chrome-sandbox not root/setuid — adding --no-sandbox'
+    );
+    launchArgs.push('--no-sandbox');
+  }
+  launchArgs.push(probes.txt, probes.ts, probes.css);
+
+  const app = childProcess.spawn(binary, launchArgs, {
+    env: Object.assign({}, process.env, { ATOM_HOME: atomHome }),
+    stdio: ['ignore', 'pipe', 'pipe']
+  });
   let appOutput = '';
   app.stdout.on('data', chunk => (appOutput += chunk));
   app.stderr.on('data', chunk => (appOutput += chunk));

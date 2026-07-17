@@ -13,14 +13,41 @@ module.exports = function() {
         .gray
     );
     return Promise.resolve();
-  } else {
-    console.log(`Dumping symbols in ${CONFIG.symbolsPath}`);
-    const binaryPaths = glob.sync(
-      path.join(CONFIG.intermediateAppPath, 'node_modules', '**', '*.node')
-    );
-    return Promise.all(binaryPaths.map(dumpSymbol));
   }
+
+  // minidump only ships dump_syms for a few host pairs (e.g. linux-x64,
+  // darwin-x64). On linux-arm64 the binary is missing and spawn throws an
+  // unhandled ENOENT — skip rather than crash the build.
+  if (!dumpSymsBinaryExists()) {
+    console.log(
+      `Skipping symbol dumping: minidump dump_syms not available for ${process.platform}-${process.arch}`
+        .gray
+    );
+    return Promise.resolve();
+  }
+
+  console.log(`Dumping symbols in ${CONFIG.symbolsPath}`);
+  const binaryPaths = glob.sync(
+    path.join(CONFIG.intermediateAppPath, 'node_modules', '**', '*.node')
+  );
+  return Promise.all(binaryPaths.map(dumpSymbol));
 };
+
+function dumpSymsBinaryExists() {
+  try {
+    const minidumpRoot = path.dirname(require.resolve('minidump/package.json'));
+    const exe = process.platform === 'win32' ? '.exe' : '';
+    const dumpSyms = path.join(
+      minidumpRoot,
+      'bin',
+      `${process.platform}-${process.arch}`,
+      `dump_syms${exe}`
+    );
+    return fs.existsSync(dumpSyms);
+  } catch (error) {
+    return false;
+  }
+}
 
 function isForeignPlatformBinary(binaryPath) {
   // prebuild-install layout: .../prebuilds/<platform>-<arch>/*.node

@@ -121,10 +121,18 @@ builders we:
 1. Install script deps without the mksnapshot lifecycle script
 2. Skip custom Atom startup-blob generation
 3. Ship Electron’s **stock** V8 snapshots (app boots normally; slightly slower cold start)
+4. Skip `minidump` symbol dumping (`dump_syms` is not shipped for `linux-arm64`)
 
 To produce custom arm64 startup blobs you must run mksnapshot on an **x64**
 Linux host with the `linux-arm64-x64` mksnapshot artifact — out of scope for
 native arm64 CI.
+
+### chrome-sandbox in CI / unpackaged runs
+
+Unpackaged `out/Chevron-linux-*` builds cannot setuid `chrome-sandbox` without
+root. The CI smoke test passes `--no-sandbox` when the helper is not
+root-owned mode `4755`. Installed `.deb` packages set the correct permissions
+on `/usr/share/chevron/chrome-sandbox`.
 
 ---
 
