@@ -10,13 +10,13 @@ else
 fi
 
 case $(basename $0) in
-  atom-beta)
+  atom-beta|chevron-beta)
     CHANNEL=beta
     ;;
-  atom-nightly)
+  atom-nightly|chevron-nightly)
     CHANNEL=nightly
     ;;
-  atom-dev)
+  atom-dev|chevron-dev)
     CHANNEL=dev
     ;;
   *)
@@ -153,18 +153,24 @@ elif [ $OS == 'Linux' ]; then
   SCRIPT=$(readlink -f "$0")
   USR_DIRECTORY=$(readlink -f $(dirname $SCRIPT)/..)
 
+  # Deb/rpm install to /usr/share/<channelName>/<executableName>
+  # (chevron/chevron, chevron-beta/chevron-beta, …). Keep legacy atom paths as fallback.
   case $CHANNEL in
     beta)
-      ATOM_PATH="$USR_DIRECTORY/share/atom-beta/atom"
+      ATOM_PATH="$USR_DIRECTORY/share/chevron-beta/chevron-beta"
+      [ -x "$ATOM_PATH" ] || ATOM_PATH="$USR_DIRECTORY/share/atom-beta/atom"
       ;;
     nightly)
-      ATOM_PATH="$USR_DIRECTORY/share/atom-nightly/atom"
+      ATOM_PATH="$USR_DIRECTORY/share/chevron-nightly/chevron-nightly"
+      [ -x "$ATOM_PATH" ] || ATOM_PATH="$USR_DIRECTORY/share/atom-nightly/atom"
       ;;
     dev)
-      ATOM_PATH="$USR_DIRECTORY/share/atom-dev/atom"
+      ATOM_PATH="$USR_DIRECTORY/share/chevron-dev/chevron-dev"
+      [ -x "$ATOM_PATH" ] || ATOM_PATH="$USR_DIRECTORY/share/atom-dev/atom"
       ;;
     *)
-      ATOM_PATH="$USR_DIRECTORY/share/atom/atom"
+      ATOM_PATH="$USR_DIRECTORY/share/chevron/chevron"
+      [ -x "$ATOM_PATH" ] || ATOM_PATH="$USR_DIRECTORY/share/atom/atom"
       ;;
   esac
 
@@ -176,6 +182,7 @@ elif [ $OS == 'Linux' ]; then
   : ${TMPDIR:=/tmp}
 
   [ -x "$ATOM_PATH" ] || ATOM_PATH="$TMPDIR/atom-build/Atom/atom"
+  [ -x "$ATOM_PATH" ] || ATOM_PATH="$TMPDIR/atom-build/Chevron/chevron"
 
   if [ $EXPECT_OUTPUT ]; then
     "$ATOM_PATH" --executed-from="$(pwd)" --pid=$$ "$@"

@@ -11,11 +11,11 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build-and-smoke:
-    name: Bootstrap, build & launch smoke test (macOS)
-    # x86_64 (matches the proven local toolchain) with Xcode 16 — macos-13
-    # was retired from GitHub-hosted runners in December 2025; macos-15-intel
-    # is GitHub's designated x86_64 replacement until Fall 2027.
+  # ---------------------------------------------------------------------------
+  # macOS — proven host path (x64 intel runners until Fall 2027)
+  # ---------------------------------------------------------------------------
+  build-and-smoke-macos:
+    name: macOS bootstrap, build & smoke
     runs-on: macos-15-intel
     timeout-minutes: 90
 
@@ -32,12 +32,9 @@ jobs:
         with:
           python-version: '3.12'
 
-      # Python 3.12+ removed stdlib distutils; node-gyp still imports it.
       - name: Install setuptools (distutils for node-gyp)
         run: python -m pip install --upgrade pip setuptools
 
-      # The lockfile pins bundled packages as git+ssh://git@github.com/…;
-      # runners have no SSH keys, so rewrite every github form to https.
       - name: Rewrite git ssh URLs to https
         run: |
           git config --global url."https://github.com/".insteadOf "ssh://git@github.com/"
@@ -52,7 +49,6 @@ jobs:
             ~/Library/Caches/electron
             ~/.npm
             ~/.atom/.apm
-          # Include host toolchain majors so Node/Python bumps do not reuse stale gyp caches.
           key: ${{ runner.os }}-node24-py312-electron-${{ hashFiles('package.json', 'package-lock.json', 'script/package.json', 'script/package-lock.json') }}
           restore-keys: |
             ${{ runner.os }}-node24-py312-electron-
@@ -71,7 +67,225 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v6
         with:
-          name: build-state
+          name: build-state-macos
+          path: |
+            out/startup.js
+            ${{ github.workspace }}/npm-debug.log
+          if-no-files-found: ignore
+
+  # ---------------------------------------------------------------------------
+  # Linux x64 — L1 smoke + L2 deb/tar artifacts
+  # ---------------------------------------------------------------------------
+  build-and-smoke-linux:
+    name: Linux x64 bootstrap, build, smoke & packages
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install system build dependencies
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          # Ubuntu 24.04+ uses t64 transitional ALSA package names
+          if apt-cache show libasound2t64 >/dev/null 2>&1; then
+            ALSA_PKG=libasound2t64
+          else
+            ALSA_PKG=libasound2
+          fi
+          sudo apt-get install -y --no-install-recommends \
+            build-essential \
+            pkg-config \
+            libx11-dev \
+            libxkbfile-dev \
+            libsecret-1-dev \
+            libxss-dev \
+            libgtk-3-0 \
+            libnotify4 \
+            libnss3 \
+            "${ALSA_PKG}" \
+            libgbm1 \
+            libx11-xcb1 \
+            libxcb-dri3-0 \
+            libxtst6 \
+            xvfb \
+            fakeroot \
+            dpkg-dev \
+            rpm
+
+      - name: Use Node 24 (bootstrap host; apm keeps bundled Node 12)
+        uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+
+      - name: Use Python 3.12
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Install setuptools (distutils for node-gyp)
+        run: python -m pip install --upgrade pip setuptools
+
+      - name: Rewrite git ssh URLs to https
+        run: |
+          git config --global url."https://github.com/".insteadOf "ssh://git@github.com/"
+          git config --global --add url."https://github.com/".insteadOf "git@github.com:"
+          git config --global --add url."https://github.com/".insteadOf "git://github.com/"
+
+      - name: Cache Electron headers, binaries and package caches
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cache/node-gyp
+            ~/.cache/electron
+            ~/.npm
+            ~/.atom/.apm
+          key: ${{ runner.os }}-${{ runner.arch }}-node24-py312-electron-${{ hashFiles('package.json', 'package-lock.json', 'script/package.json', 'script/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ runner.arch }}-node24-py312-electron-
+            ${{ runner.os }}-node24-py312-electron-
+
+      - name: Bootstrap
+        run: ./script/bootstrap-modern --ci
+
+      - name: Build + package (deb, tar; rpm best-effort)
+        run: |
+          set -euo pipefail
+          # deb + tar are required; rpm is best-effort (rpmbuild quirks on Ubuntu).
+          if ! ./script/with-modern-env ./script/build --no-bootstrap \
+            --create-debian-package \
+            --compress-artifacts \
+            --create-rpm-package; then
+            echo "WARNING: build with rpm failed; retrying without --create-rpm-package"
+            ./script/with-modern-env ./script/build --no-bootstrap \
+              --create-debian-package \
+              --compress-artifacts
+          fi
+
+      - name: Launch smoke test (Xvfb)
+        run: xvfb-run -a node script/ci/smoke-test.js
+
+      - name: Upload Linux packages
+        if: success()
+        uses: actions/upload-artifact@v6
+        with:
+          name: chevron-linux-${{ runner.arch }}
+          path: |
+            out/*.deb
+            out/*.rpm
+            out/*.tar.gz
+          if-no-files-found: warn
+
+      - name: Upload build output on failure
+        if: failure()
+        uses: actions/upload-artifact@v6
+        with:
+          name: build-state-linux-${{ runner.arch }}
+          path: |
+            out/startup.js
+            ${{ github.workspace }}/npm-debug.log
+          if-no-files-found: ignore
+
+  # ---------------------------------------------------------------------------
+  # Linux arm64 — L3 (same pipeline; non-blocking so scarce runners don't gate PRs)
+  # ---------------------------------------------------------------------------
+  build-and-smoke-linux-arm64:
+    name: Linux arm64 bootstrap, build, smoke & packages
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 150
+    continue-on-error: true
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install system build dependencies
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          if apt-cache show libasound2t64 >/dev/null 2>&1; then
+            ALSA_PKG=libasound2t64
+          else
+            ALSA_PKG=libasound2
+          fi
+          sudo apt-get install -y --no-install-recommends \
+            build-essential \
+            pkg-config \
+            libx11-dev \
+            libxkbfile-dev \
+            libsecret-1-dev \
+            libxss-dev \
+            libgtk-3-0 \
+            libnotify4 \
+            libnss3 \
+            "${ALSA_PKG}" \
+            libgbm1 \
+            libx11-xcb1 \
+            libxcb-dri3-0 \
+            libxtst6 \
+            xvfb \
+            fakeroot \
+            dpkg-dev \
+            rpm
+
+      - name: Use Node 24
+        uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+
+      - name: Use Python 3.12
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Install setuptools
+        run: python -m pip install --upgrade pip setuptools
+
+      - name: Rewrite git ssh URLs to https
+        run: |
+          git config --global url."https://github.com/".insteadOf "ssh://git@github.com/"
+          git config --global --add url."https://github.com/".insteadOf "git@github.com:"
+          git config --global --add url."https://github.com/".insteadOf "git://github.com/"
+
+      - name: Cache Electron / npm
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cache/node-gyp
+            ~/.cache/electron
+            ~/.npm
+            ~/.atom/.apm
+          key: ${{ runner.os }}-${{ runner.arch }}-node24-py312-electron-${{ hashFiles('package.json', 'package-lock.json', 'script/package.json', 'script/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ runner.arch }}-node24-py312-electron-
+
+      - name: Bootstrap
+        run: ./script/bootstrap-modern --ci
+
+      - name: Build + package (deb + tar)
+        run: |
+          ./script/with-modern-env ./script/build --no-bootstrap \
+            --create-debian-package \
+            --compress-artifacts
+
+      - name: Launch smoke test (Xvfb)
+        run: xvfb-run -a node script/ci/smoke-test.js
+
+      - name: Upload Linux arm64 packages
+        if: success()
+        uses: actions/upload-artifact@v6
+        with:
+          name: chevron-linux-arm64
+          path: |
+            out/*.deb
+            out/*.tar.gz
+          if-no-files-found: warn
+
+      - name: Upload build output on failure
+        if: failure()
+        uses: actions/upload-artifact@v6
+        with:
+          name: build-state-linux-arm64
           path: |
             out/startup.js
             ${{ github.workspace }}/npm-debug.log

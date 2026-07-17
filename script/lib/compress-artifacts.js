@@ -23,11 +23,11 @@ module.exports = function(packagedAppPath) {
 function getArchiveName() {
   switch (process.platform) {
     case 'darwin':
-      return 'atom-mac.zip';
+      return 'chevron-mac.zip';
     case 'win32':
-      return `atom-${process.arch === 'x64' ? 'x64-' : ''}windows.zip`;
+      return `chevron-${process.arch === 'x64' ? 'x64-' : ''}windows.zip`;
     default:
-      return `atom-${getLinuxArchiveArch()}.tar.gz`;
+      return `chevron-${getLinuxArchiveArch()}.tar.gz`;
   }
 }
 
@@ -37,6 +37,9 @@ function getLinuxArchiveArch() {
       return 'i386';
     case 'x64':
       return 'amd64';
+    case 'arm64':
+    case 'aarch64':
+      return 'arm64';
     default:
       return process.arch;
   }

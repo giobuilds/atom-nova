@@ -3,7 +3,7 @@ Version:        <%= version %>
 Release:        0.1%{?dist}
 Summary:        <%= description %>
 License:        MIT
-URL:            https://atom.io/
+URL:            https://github.com/builtbygio/chevron
 AutoReqProv:    no # Avoid libchromiumcontent.so missing dependency
 Prefix:         <%= installDir %>
 

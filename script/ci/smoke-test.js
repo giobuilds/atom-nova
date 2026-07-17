@@ -36,10 +36,13 @@ function findAppBinary(appArg) {
     let bundle = appArg;
     if (!bundle) {
       const outDir = path.join(REPO_ROOT, 'out');
-      bundle = fs
-        .readdirSync(outDir)
-        .filter(name => name.endsWith('.app'))
-        .map(name => path.join(outDir, name))[0];
+      const names = fs.readdirSync(outDir).filter(name => name.endsWith('.app'));
+      // Prefer Chevron.app if both exist during rebrand transitions
+      const preferred =
+        names.find(n => /^Chevron/i.test(n)) ||
+        names.find(n => /^Atom/i.test(n)) ||
+        names[0];
+      bundle = preferred ? path.join(outDir, preferred) : null;
     }
     if (!bundle) throw new Error('no .app bundle found in out/');
     const macOSDir = path.join(bundle, 'Contents', 'MacOS');
@@ -48,16 +51,74 @@ function findAppBinary(appArg) {
       .map(name => path.join(macOSDir, name))[0];
     return binary;
   }
-  // Linux: packaged app directory containing the executable
-  const appDir =
-    appArg ||
-    fs
-      .readdirSync(path.join(REPO_ROOT, 'out'))
-      .filter(name => name.includes('-linux-'))
-      .map(name => path.join(REPO_ROOT, 'out', name))[0];
-  if (!appDir) throw new Error('no packaged app found in out/');
+  // Linux: electron-packager dir e.g. out/Chevron-linux-x64/chevron
+  let appDir = appArg;
+  if (!appDir) {
+    const outDir = path.join(REPO_ROOT, 'out');
+    if (!fs.existsSync(outDir)) {
+      throw new Error('out/ does not exist; build the app first');
+    }
+    const candidates = fs
+      .readdirSync(outDir)
+      .map(name => path.join(outDir, name))
+      .filter(p => {
+        try {
+          return fs.statSync(p).isDirectory();
+        } catch (error) {
+          return false;
+        }
+      })
+      .filter(p => {
+        const base = path.basename(p);
+        // Prefer packager layout; also accept legacy atom-<ver>-<arch> dirs.
+        return (
+          base.includes('-linux-') ||
+          /^(Chevron|Atom|chevron|atom)([-_]|$)/i.test(base)
+        );
+      });
+    // Prefer product-named dirs (Chevron-linux-*) over legacy Atom-*
+    candidates.sort((a, b) => {
+      const score = p => {
+        const base = path.basename(p);
+        if (/^Chevron-linux-/i.test(base)) return 0;
+        if (/-linux-/i.test(base) && /Chevron/i.test(base)) return 1;
+        if (/-linux-/i.test(base)) return 2;
+        if (/^chevron/i.test(base)) return 3;
+        if (/^atom/i.test(base)) return 4;
+        return 5;
+      };
+      return score(a) - score(b);
+    });
+    appDir = candidates[0];
+  }
+  if (!appDir) throw new Error('no packaged Linux app directory found in out/');
+  const preferredNames = [
+    'chevron',
+    'chevron-beta',
+    'chevron-nightly',
+    'chevron-dev',
+    'atom',
+    'Chevron',
+    'Atom'
+  ];
+  for (const name of preferredNames) {
+    const candidate = path.join(appDir, name);
+    try {
+      fs.accessSync(candidate, fs.constants.X_OK);
+      if (fs.statSync(candidate).isFile()) return candidate;
+    } catch (error) {
+      /* try next */
+    }
+  }
+  // Last resort: any executable that is not a helper/script noise
+  const skip = new Set([
+    'chrome_crashpad_handler',
+    'chrome-sandbox',
+    'resources'
+  ]);
   const binary = fs
     .readdirSync(appDir)
+    .filter(name => !skip.has(name))
     .map(name => path.join(appDir, name))
     .find(candidate => {
       try {
@@ -67,6 +128,9 @@ function findAppBinary(appArg) {
         return false;
       }
     });
+  if (!binary) {
+    throw new Error(`no executable found in ${appDir}`);
+  }
   return binary;
 }
 

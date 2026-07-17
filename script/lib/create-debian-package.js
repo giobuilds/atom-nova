@@ -10,8 +10,7 @@ const CONFIG = require('../config');
 
 module.exports = function(packagedAppPath) {
   console.log(`Creating Debian package for "${packagedAppPath}"`);
-  const atomExecutableName =
-    CONFIG.channel === 'stable' ? 'atom' : `atom-${CONFIG.channel}`;
+  const atomExecutableName = CONFIG.channelName; // chevron / chevron-beta
   const apmExecutableName =
     CONFIG.channel === 'stable' ? 'apm' : `apm-${CONFIG.channel}`;
   const appDescription = CONFIG.appMetadata.description;
@@ -21,6 +20,8 @@ module.exports = function(packagedAppPath) {
     arch = 'i386';
   } else if (process.arch === 'x64') {
     arch = 'amd64';
+  } else if (process.arch === 'arm64' || process.arch === 'aarch64') {
+    arch = 'arm64';
   } else if (process.arch === 'ppc') {
     arch = 'powerpc';
   } else {
@@ -29,7 +30,7 @@ module.exports = function(packagedAppPath) {
 
   const outputDebianPackageFilePath = path.join(
     CONFIG.buildOutputPath,
-    `atom-${arch}.deb`
+    `${atomExecutableName}_${appVersion}_${arch}.deb`
   );
   const debianPackageDirPath = path.join(
     os.tmpdir(),
@@ -168,35 +169,48 @@ module.exports = function(packagedAppPath) {
     desktopEntryContents
   );
 
-  console.log(`Copying icon into "${debianPackageIconsDirPath}"`);
-  fs.copySync(
-    path.join(
-      packagedAppPath,
-      'resources',
-      'app.asar.unpacked',
-      'resources',
-      'atom.png'
-    ),
-    path.join(debianPackageIconsDirPath, `${atomExecutableName}.png`)
-  );
-
   console.log(`Copying license into "${debianPackageDocsDirPath}"`);
   fs.copySync(
     path.join(packagedAppPath, 'resources', 'LICENSE.md'),
     path.join(debianPackageDocsDirPath, 'copyright')
   );
 
+  // Prefer packaged icon at root (copied by package-application on Linux).
+  const iconCandidates = [
+    path.join(packagedAppPath, `${atomExecutableName}.png`),
+    path.join(packagedAppPath, 'chevron.png'),
+    path.join(packagedAppPath, 'atom.png'),
+    path.join(
+      packagedAppPath,
+      'resources',
+      'app.asar.unpacked',
+      'resources',
+      'atom.png'
+    )
+  ];
+  const iconSource = iconCandidates.find(p => fs.existsSync(p));
+  if (iconSource) {
+    console.log(`Copying icon into "${debianPackageIconsDirPath}"`);
+    fs.copySync(
+      iconSource,
+      path.join(debianPackageIconsDirPath, `${atomExecutableName}.png`)
+    );
+  } else {
+    console.log('WARNING: no Linux package icon found; desktop entry may lack icon');
+  }
+
   console.log(
     `Copying polkit configuration into "${debianPackageShareDirPath}"`
   );
+  const polkitActionsDir = path.join(
+    debianPackageShareDirPath,
+    'polkit-1',
+    'actions'
+  );
+  fs.mkdirpSync(polkitActionsDir);
   fs.copySync(
     path.join(CONFIG.repositoryRootPath, 'resources', 'linux', 'atom.policy'),
-    path.join(
-      debianPackageShareDirPath,
-      'polkit-1',
-      'actions',
-      `atom-${CONFIG.channel}.policy`
-    )
+    path.join(polkitActionsDir, `${atomExecutableName}.policy`)
   );
 
   console.log(`Generating .deb file from ${debianPackageDirPath}`);
