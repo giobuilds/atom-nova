@@ -1,8 +1,7 @@
 'use strict';
 
-const childProcess = require('child_process');
-
 const CONFIG = require('../config');
+const execFileSync = require('./exec-file-sync');
 
 /**
  * Install atom-package-manager under apm/.
@@ -31,8 +30,9 @@ module.exports = function(ci, options) {
     args.push('--ignore-scripts');
   }
   args.push(ci ? 'ci' : 'install');
-  childProcess.execFileSync(CONFIG.getLocalNpmBinPath(), args, {
+  execFileSync(CONFIG.getLocalNpmBinPath(), args, {
     env: process.env,
-    cwd: CONFIG.apmRootPath
+    cwd: CONFIG.apmRootPath,
+    stdio: 'inherit'
   });
 };

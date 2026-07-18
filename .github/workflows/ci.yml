@@ -12,12 +12,20 @@ concurrency:
 
 jobs:
   # ---------------------------------------------------------------------------
-  # macOS — proven host path (x64 intel runners until Fall 2027)
+  # macOS — Intel x64 + Apple Silicon arm64
   # ---------------------------------------------------------------------------
   build-and-smoke-macos:
-    name: macOS bootstrap, build & smoke
-    runs-on: macos-15-intel
-    timeout-minutes: 90
+    name: macOS ${{ matrix.arch }} bootstrap, build & smoke
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-15-intel
+            arch: x64
+          - os: macos-15
+            arch: arm64
 
     steps:
       - uses: actions/checkout@v5
@@ -49,32 +57,42 @@ jobs:
             ~/Library/Caches/electron
             ~/.npm
             ~/.atom/.apm
-          key: ${{ runner.os }}-node24-py312-electron-${{ hashFiles('package.json', 'package-lock.json', 'script/package.json', 'script/package-lock.json') }}
+          key: ${{ runner.os }}-${{ matrix.arch }}-node24-py312-electron-${{ hashFiles('package.json', 'package-lock.json', 'script/package.json', 'script/package-lock.json') }}
           restore-keys: |
+            ${{ runner.os }}-${{ matrix.arch }}-node24-py312-electron-
             ${{ runner.os }}-node24-py312-electron-
-            ${{ runner.os }}-electron-
 
       - name: Bootstrap
         run: ./script/bootstrap-modern --ci
 
       - name: Build
-        run: ./script/with-modern-env ./script/build --no-bootstrap
+        run: ./script/with-modern-env ./script/build --no-bootstrap --compress-artifacts
 
       - name: Launch smoke test
         run: node script/ci/smoke-test.js
+
+      - name: Upload macOS packages
+        if: success()
+        uses: actions/upload-artifact@v6
+        with:
+          name: chevron-macos-${{ matrix.arch }}
+          path: |
+            out/*.zip
+            out/*.app
+          if-no-files-found: warn
 
       - name: Upload build output on failure
         if: failure()
         uses: actions/upload-artifact@v6
         with:
-          name: build-state-macos
+          name: build-state-macos-${{ matrix.arch }}
           path: |
             out/startup.js
             ${{ github.workspace }}/npm-debug.log
           if-no-files-found: ignore
 
   # ---------------------------------------------------------------------------
-  # Linux x64 — L1 smoke + L2 deb/tar artifacts
+  # Linux x64 — deb + tar + rpm
   # ---------------------------------------------------------------------------
   build-and-smoke-linux:
     name: Linux x64 bootstrap, build, smoke & packages
@@ -149,19 +167,16 @@ jobs:
       - name: Bootstrap
         run: ./script/bootstrap-modern --ci
 
-      - name: Build + package (deb, tar; rpm best-effort)
+      - name: Build + package (deb, tar, rpm)
         run: |
           set -euo pipefail
-          # deb + tar are required; rpm is best-effort (rpmbuild quirks on Ubuntu).
-          if ! ./script/with-modern-env ./script/build --no-bootstrap \
+          command -v rpmbuild
+          ./script/with-modern-env ./script/build --no-bootstrap \
             --create-debian-package \
-            --compress-artifacts \
-            --create-rpm-package; then
-            echo "WARNING: build with rpm failed; retrying without --create-rpm-package"
-            ./script/with-modern-env ./script/build --no-bootstrap \
-              --create-debian-package \
-              --compress-artifacts
-          fi
+            --create-rpm-package \
+            --compress-artifacts
+          # Require deb + tar + rpm artifacts
+          ls -la out/*.deb out/*.tar.gz out/*.rpm
 
       - name: Launch smoke test (Xvfb)
         run: xvfb-run -a node script/ci/smoke-test.js
@@ -175,7 +190,7 @@ jobs:
             out/*.deb
             out/*.rpm
             out/*.tar.gz
-          if-no-files-found: warn
+          if-no-files-found: error
 
       - name: Upload build output on failure
         if: failure()
@@ -188,7 +203,7 @@ jobs:
           if-no-files-found: ignore
 
   # ---------------------------------------------------------------------------
-  # Linux arm64 — L3 (same pipeline; non-blocking so scarce runners don't gate PRs)
+  # Linux arm64 — deb + tar + rpm (non-blocking if arm runners are scarce)
   # ---------------------------------------------------------------------------
   build-and-smoke-linux-arm64:
     name: Linux arm64 bootstrap, build, smoke & packages
@@ -262,11 +277,15 @@ jobs:
       - name: Bootstrap
         run: ./script/bootstrap-modern --ci
 
-      - name: Build + package (deb + tar)
+      - name: Build + package (deb, tar, rpm)
         run: |
+          set -euo pipefail
+          command -v rpmbuild
           ./script/with-modern-env ./script/build --no-bootstrap \
             --create-debian-package \
+            --create-rpm-package \
             --compress-artifacts
+          ls -la out/*.deb out/*.tar.gz out/*.rpm
 
       - name: Launch smoke test (Xvfb)
         run: xvfb-run -a node script/ci/smoke-test.js
@@ -278,8 +297,9 @@ jobs:
           name: chevron-linux-arm64
           path: |
             out/*.deb
+            out/*.rpm
             out/*.tar.gz
-          if-no-files-found: warn
+          if-no-files-found: error
 
       - name: Upload build output on failure
         if: failure()

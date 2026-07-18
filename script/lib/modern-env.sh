@@ -165,18 +165,31 @@ esac
 # --- C++ standard / toolchain for Node/Electron headers ----------------------
 # Electron 20+ headers build with gnu++17, Electron 29+ with gnu++20; forcing
 # an older -std via CXXFLAGS overrides gyp's own and breaks V8 headers.
-_electron_version="$(node -p "require('$_atomnova_repo_root/package.json').electronVersion" 2>/dev/null || echo 0)"
+# On Windows, MSVC does not accept -std=gnu++*; leave flags to node-gyp/msvs.
+_electron_version="$(node -p "try{require(require('path').join(process.cwd(),'package.json')).electronVersion}catch(e){0}" 2>/dev/null || echo 0)"
+# Prefer absolute path; cwd may not be repo root when sourced.
+if [ -f "$_atomnova_repo_root/package.json" ]; then
+  _electron_version="$(node -p "try{require(process.argv[1]).electronVersion}catch(e){0}" "$_atomnova_repo_root/package.json" 2>/dev/null || echo "$_electron_version")"
+fi
 _electron_major="${_electron_version%%.*}"
 
-_atomnova_cxx_std="-std=c++17"
-if [ "${_electron_major:-0}" -ge 29 ] 2>/dev/null; then
-  _atomnova_cxx_std="-std=gnu++20"
-fi
-case " ${CXXFLAGS:-} " in
-  *" -std="* | "-std="* ) ;;
-  * ) export CXXFLAGS="${_atomnova_cxx_std}${CXXFLAGS:+ $CXXFLAGS}" ;;
+case "$(uname -s 2>/dev/null)-${OS:-}" in
+  MINGW*|MSYS*|CYGWIN*|*Windows_NT*)
+    # MSVC / clang-cl: do not inject gcc-style -std=
+    :
+    ;;
+  *)
+    _atomnova_cxx_std="-std=c++17"
+    if [ "${_electron_major:-0}" -ge 29 ] 2>/dev/null; then
+      _atomnova_cxx_std="-std=gnu++20"
+    fi
+    case " ${CXXFLAGS:-} " in
+      *" -std="* | "-std="* ) ;;
+      * ) export CXXFLAGS="${_atomnova_cxx_std}${CXXFLAGS:+ $CXXFLAGS}" ;;
+    esac
+    export npm_config_cxxflags="${npm_config_cxxflags:-$_atomnova_cxx_std}"
+    ;;
 esac
-export npm_config_cxxflags="${npm_config_cxxflags:-$_atomnova_cxx_std}"
 
 # Electron 40+ V8 headers need <source_location> (libc++ from Xcode 15).
 # The CLT on this host is clang 14; select Xcode.app per-process instead.

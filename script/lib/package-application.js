@@ -25,7 +25,8 @@ module.exports = function() {
     appBundleId: 'com.github.atom',
     appCopyright: `Copyright © 2014-${new Date().getFullYear()} GitHub, Inc. All rights reserved.`,
     appVersion: CONFIG.appMetadata.version,
-    arch: process.platform === 'darwin' ? 'x64' : HOST_ARCH, // OS X is 64-bit only
+    // Native arch on each host (Intel x64 or Apple Silicon arm64 on macOS).
+    arch: HOST_ARCH,
     asar: { unpack: buildAsarUnpackGlobExpression() },
     buildVersion: CONFIG.appMetadata.version,
     derefSymlinks: false,

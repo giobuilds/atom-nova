@@ -1,10 +1,10 @@
 'use strict';
 
-const childProcess = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
 const CONFIG = require('../config');
+const execFileSync = require('./exec-file-sync');
 
 // Marker used so we can restore package-local .npmrc after install.
 const IGNORE_SCRIPTS_MARKER = '# atom-nova-temp-ignore-scripts';
@@ -56,7 +56,7 @@ module.exports = function(packagePath, ci, stdioOptions, options) {
   }
 
   try {
-    childProcess.execFileSync(CONFIG.getApmBinPath(), [ci ? 'ci' : 'install'], {
+    execFileSync(CONFIG.getApmBinPath(), [ci ? 'ci' : 'install'], {
       env: installEnv,
       cwd: packagePath,
       stdio: stdioOptions || 'inherit'

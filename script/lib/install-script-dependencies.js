@@ -1,10 +1,10 @@
 'use strict';
 
-const childProcess = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
 const CONFIG = require('../config');
+const execFileSync = require('./exec-file-sync');
 const { hostCanRunMksnapshot } = require('./mksnapshot-host-support');
 
 // Recognised by '@electron/get', used by the 'electron-mksnapshot' and 'electron-chromedriver' dependencies
@@ -27,9 +27,10 @@ module.exports = function(ci) {
     args.push('--ignore-scripts');
   }
 
-  childProcess.execFileSync(npmBin, args, {
+  execFileSync(npmBin, args, {
     env: process.env,
-    cwd: CONFIG.scriptRootPath
+    cwd: CONFIG.scriptRootPath,
+    stdio: 'inherit'
   });
 
   if (skipMksnapshot) {
@@ -49,7 +50,7 @@ function finishScriptDepsWithoutMksnapshot(ci) {
   for (const pkg of ['fs-admin', 'leveldown']) {
     try {
       console.log(`Rebuilding ${pkg}…`);
-      childProcess.execFileSync(
+      execFileSync(
         CONFIG.getNpmBinPath(ci),
         ['rebuild', pkg, '--loglevel=error'],
         {
@@ -97,7 +98,7 @@ function runNodeModuleScript(packageName, scriptFile, label) {
   }
   try {
     console.log(`Running ${label}…`);
-    childProcess.execFileSync(process.execPath, [scriptPath], {
+    execFileSync(process.execPath, [scriptPath], {
       env: process.env,
       cwd: path.dirname(scriptPath),
       stdio: 'inherit'
