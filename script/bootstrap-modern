@@ -278,29 +278,30 @@ rebuild_package_modern() {
 
 if [ "$ELECTRON_MAJOR" -ge 20 ]; then
   echo "Electron $ELECTRON_VERSION: apm's node-gyp is too old; npm rebuild + modern gyp"
-  (cd "$REPO_ROOT" && npm rebuild 2>&1) || {
-    echo "npm rebuild failed; trying per-package native rebuilds..."
-    rebuild_package_modern "$REPO_ROOT/node_modules/superstring" || true
-    rebuild_package_modern "$REPO_ROOT/node_modules/tree-sitter" || true
-    rebuild_package_modern "$REPO_ROOT/node_modules/@atom/watcher" || true
-  }
-elif "$REPO_ROOT/apm/node_modules/atom-package-manager/bin/apm" rebuild 2>/dev/null; then
-  echo "apm rebuild finished."
+  (cd "$REPO_ROOT" && npm rebuild 2>&1) || \
+    echo "npm rebuild failed; will force per-package Electron rebuilds..."
 else
-  echo "apm rebuild unavailable; npm rebuild with target=$ELECTRON_VERSION"
-  (cd "$REPO_ROOT" && npm rebuild 2>&1) || {
-    echo "npm rebuild failed; trying per-package native rebuilds..."
-    APM_NODE="$REPO_ROOT/apm/node_modules/atom-package-manager/bin/node"
-    APM_GYP="$REPO_ROOT/apm/node_modules/atom-package-manager/node_modules/npm/node_modules/node-gyp/bin/node-gyp.js"
-    for _pkg in superstring tree-sitter '@atom/watcher'; do
-      (cd "$REPO_ROOT/node_modules/$_pkg" && \
-        "$APM_NODE" "$APM_GYP" rebuild \
-          --target="$ELECTRON_VERSION" \
-          --dist-url="$ATOM_ELECTRON_URL" \
-          --arch="$(node -p "process.arch")") || true
-    done
-  }
+  if "$REPO_ROOT/apm/node_modules/atom-package-manager/bin/apm" rebuild 2>/dev/null; then
+    echo "apm rebuild finished."
+  else
+    echo "apm rebuild unavailable; npm rebuild with target=$ELECTRON_VERSION"
+    (cd "$REPO_ROOT" && npm rebuild 2>&1) || \
+      echo "npm rebuild failed; will force per-package Electron rebuilds..."
+  fi
 fi
+
+# Always rebuild critical natives with modern node-gyp + --runtime=electron.
+# npm rebuild alone can leave superstring linked against host Node on Windows
+# (unresolved GetBackingStore) or skip packages that failed mid-run.
+echo "Force-rebuilding critical natives for Electron $ELECTRON_VERSION..."
+for _pkg in superstring tree-sitter '@atom/watcher' keytar; do
+  _dir="$REPO_ROOT/node_modules/$_pkg"
+  if [ -d "$_dir" ]; then
+    echo "  rebuild $_pkg..."
+    rebuild_package_modern "$_dir" || \
+      echo "WARNING: rebuild failed for $_pkg"
+  fi
+done
 
 # Ensure keytar.node exists (github package). Full npm rebuild may skip if
 # prebuild metadata is present without a usable binary.
