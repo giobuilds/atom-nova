@@ -1,7 +1,7 @@
 const { Disposable } = require('atom');
 const etch = require('etch');
 const { shell } = require('electron');
-const AtomLogo = require('./atom-logo');
+const ChevronLogo = require('./chevron-logo');
 const EtchComponent = require('../etch-component');
 const UpdateView = require('./update-view');
 
@@ -80,10 +80,10 @@ module.exports = class AboutView extends EtchComponent {
           { className: 'about-header' },
           $.a(
             {
-              className: 'about-atom-io',
+              className: 'about-atom-io about-chevron-logo',
               href: 'https://github.com/builtbygio/chevron'
             },
-            $(AtomLogo)
+            $(ChevronLogo)
           ),
           $.div(
             { className: 'about-header-info' },

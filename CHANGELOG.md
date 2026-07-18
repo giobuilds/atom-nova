@@ -9,11 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Planned (0.3.0)
+### Added (toward 0.3.0)
 
-- Rebrand polish (remaining UI/docs strings, AtomNova-era docs hygiene)
-- New Chevron logo / app icons
-- Better first-run UX
+- New **Chevron app icon** (double-chevron mark, indigo→cyan) for stable/beta/nightly/dev
+  - `resources/app-icons/<channel>/chevron.icns`, `.ico`, and `png/*`
+  - Legacy `atom.icns` / `atom.ico` kept as copies for residual paths
+- In-app **Chevron wordmark** (About + Welcome) replacing the Atom orbital logo
+- Welcome guide first-run copy updated for Chevron (product-facing strings)
+
+### Planned (still 0.3.0)
+
+- Further first-run UX (onboarding steps, optional config migrate prompt)
+- README / docs hero assets using the new mark
 
 ## [0.2.0] — 2026-07-18
 

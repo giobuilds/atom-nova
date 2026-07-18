@@ -5,7 +5,7 @@
 	<key>CFBundleExecutable</key>
 	<string>Chevron</string>
 	<key>CFBundleIconFile</key>
-	<string>atom.icns</string>
+	<string>chevron.icns</string>
 	<key>CFBundleIdentifier</key>
 	<string>dev.builtbygio.chevron</string>
 	<key>CFBundleInfoDictionaryVersion</key>

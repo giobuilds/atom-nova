@@ -38,6 +38,14 @@ This document supersedes the historical AtomNova rebrand checklist.
 | Protocols | Register `atom` + `chevron`; normalize `chevron://` → `atom://` for packages |
 | CLI | Install `chevron` primary; keep `atom` + `apm` shims |
 
+## 0.3.0 polish (in progress)
+
+- [x] New Chevron app icons (icns/ico/png) for all channels
+- [x] About + Welcome wordmark
+- [x] Welcome guide product copy
+- [ ] README hero / screenshot refresh
+- [ ] Optional first-run config migrate prompt
+
 ## Verification
 
 Multi-platform CI after each phase. See the session plan for full acceptance checklist.
