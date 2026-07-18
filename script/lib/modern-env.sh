@@ -82,8 +82,15 @@ for _candidate in \
   "$(command -v python3.13 2>/dev/null || true)" \
   /usr/local/bin/python3.11 \
   /opt/homebrew/bin/python3.11 \
-  "$(command -v python3.11 2>/dev/null || true)"; do
-  if [ -n "$_candidate" ] && [ -x "$_candidate" ]; then
+  "$(command -v python3.11 2>/dev/null || true)" \
+  "$(command -v python3 2>/dev/null || true)" \
+  "$(command -v python 2>/dev/null || true)"; do
+  # Skip empty / non-executable (Windows Git Bash: -x can fail on .exe; -f is enough)
+  if [ -z "$_candidate" ]; then
+    continue
+  fi
+  if [ -x "$_candidate" ] || [ -f "$_candidate" ]; then
+    # Reject Windows Store python stub / wrong majors later via version check
     _python="$_candidate"
     break
   fi
@@ -91,8 +98,9 @@ done
 
 if [ -z "$_python" ]; then
   echo "error: Python 3.12, 3.13, or 3.11 not found (required for node-gyp / native rebuilds)." >&2
-  echo "  brew install python@3.12   # preferred (CI pin)" >&2
-  echo "  # or: brew install python@3.13 / python@3.11" >&2
+  echo "  macOS:  brew install python@3.12" >&2
+  echo "  Linux:  apt install python3.12 (or use pyenv/nvm-style pin)" >&2
+  echo "  Windows: install Python 3.12 and ensure it is on PATH (CI: actions/setup-python)" >&2
   return 1 2>/dev/null || exit 1
 fi
 
@@ -129,14 +137,30 @@ fi
 
 # Always point the unversioned shim at the selected interpreter so old Makefiles
 # (`env python`) and node-gyp discovery stay consistent with PYTHON/NODE_GYP_*.
-mkdir -p "$HOME/.local/bin"
-ln -sfn "$_python" "$HOME/.local/bin/python"
+# On Windows Git Bash, ln -sfn works; if not, fall back to a tiny wrapper script.
+mkdir -p "${HOME:-$USERPROFILE}/.local/bin"
+_atomnova_python_shim="${HOME:-$USERPROFILE}/.local/bin/python"
+if ln -sfn "$_python" "$_atomnova_python_shim" 2>/dev/null; then
+  :
+else
+  printf '#!/usr/bin/env bash\nexec "%s" "$@"\n' "$_python" >"$_atomnova_python_shim"
+  chmod +x "$_atomnova_python_shim" 2>/dev/null || true
+fi
 
 # Prefer shim + Homebrew libexec (unversioned names) on PATH. Active major first.
-export PATH="$HOME/.local/bin:/usr/local/opt/python@3.12/libexec/bin:/opt/homebrew/opt/python@3.12/libexec/bin:/usr/local/opt/python@3.13/libexec/bin:/opt/homebrew/opt/python@3.13/libexec/bin:/usr/local/opt/python@3.11/libexec/bin:/opt/homebrew/opt/python@3.11/libexec/bin:$PATH"
+export PATH="${HOME:-$USERPROFILE}/.local/bin:/usr/local/opt/python@3.12/libexec/bin:/opt/homebrew/opt/python@3.12/libexec/bin:/usr/local/opt/python@3.13/libexec/bin:/opt/homebrew/opt/python@3.13/libexec/bin:/usr/local/opt/python@3.11/libexec/bin:/opt/homebrew/opt/python@3.11/libexec/bin:$PATH"
 export PYTHON="$_python"
 export npm_config_python="$_python"
 export NODE_GYP_FORCE_PYTHON="$_python"
+
+# Windows: node-gyp / MSVC — prefer VS 2022 Build Tools when present.
+# (GitHub windows-latest images already include them; this helps local builds.)
+case "$(uname -s 2>/dev/null)-${OS:-}" in
+  MINGW*|MSYS*|CYGWIN*|*Windows_NT*)
+    export npm_config_msvs_version="${npm_config_msvs_version:-2022}"
+    export GYP_MSVS_VERSION="${GYP_MSVS_VERSION:-2022}"
+    ;;
+esac
 
 # --- C++ standard / toolchain for Node/Electron headers ----------------------
 # Electron 20+ headers build with gnu++17, Electron 29+ with gnu++20; forcing

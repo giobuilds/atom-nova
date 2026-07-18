@@ -54,8 +54,8 @@ module.exports = function() {
     // Atom doesn't have devDependencies, but if prune is true, it will delete the non-standard packageDependencies.
     prune: false,
     win32metadata: {
-      CompanyName: 'GitHub, Inc.',
-      FileDescription: 'Atom',
+      CompanyName: 'Chevron',
+      FileDescription: CONFIG.appName,
       ProductName: CONFIG.appName
     }
   }).then(packagedAppPath => {
@@ -235,7 +235,8 @@ function getAppName() {
   if (process.platform === 'darwin') {
     return CONFIG.appName;
   } else if (process.platform === 'win32') {
-    return CONFIG.channel === 'stable' ? 'atom' : `atom-${CONFIG.channel}`;
+    // electron-packager product folder name; binary is CONFIG.executableName (chevron.exe).
+    return CONFIG.appName.replace(/\s+/g, '-');
   } else {
     // Linux: electron-packager dir is <name>-linux-<arch> (e.g. Chevron-linux-x64).
     // Spaces in product names become awkward paths; normalize for non-stable channels.

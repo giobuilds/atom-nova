@@ -50,16 +50,16 @@ cd chevron
 ./script/bootstrap-modern
 ./script/with-modern-env ./script/build --no-bootstrap
 
-# macOS: opens out/Chevron.app
-# Linux: also package with --create-debian-package --compress-artifacts
-# Headless Linux smoke: xvfb-run -a node script/ci/smoke-test.js
+# macOS: out/Chevron.app
+# Linux:  --create-debian-package --compress-artifacts ; smoke: xvfb-run -a node script/ci/smoke-test.js
+# Windows (Git Bash): same bootstrap/build; smoke: node script/ci/smoke-test.js
 ```
 
 Platform guides:
 
 - [Linux](docs/build-instructions/linux.md) — deps, `.deb` / tarball, CI jobs
 - [macOS](docs/build-instructions/macOS.md)
-- [Windows](docs/build-instructions/windows.md)
+- [Windows](docs/build-instructions/windows.md) — VS 2022, zip artifact, CI job
 
 ## License
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# AtomNova bootstrap for modern host toolchains (macOS 13+ / current Linux).
+# AtomNova bootstrap for modern host toolchains (macOS 13+ / Linux / Windows via Git Bash).
 #
 # Stock ./script/bootstrap assumes Node ~12–16 era + Python with distutils +
 # atom.io Electron headers. This wrapper applies the environment and patches

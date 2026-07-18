@@ -74,6 +74,7 @@ GitHub Actions (`.github/workflows/ci.yml`):
 | `build-and-smoke-macos` | `macos-15-intel` | Bootstrap, build, smoke |
 | `build-and-smoke-linux` | `ubuntu-latest` (x64) | Bootstrap, build, xvfb smoke, deb+tar (+ rpm best-effort) |
 | `build-and-smoke-linux-arm64` | `ubuntu-24.04-arm` | Same without requiring rpm (`continue-on-error`) |
+| `build-and-smoke-windows` | `windows-latest` (x64) | Bootstrap, build, zip, smoke |
 
 Linux jobs upload **packages only** (`.deb` / `.tar.gz` / `.rpm`) as workflow artifacts (`chevron-linux-*`). Arm64 is non-blocking so scarce runners do not gate merges.
 
