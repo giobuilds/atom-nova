@@ -29,17 +29,21 @@ module.exports = class CommandInstaller {
       );
     };
 
-    this.installAtomCommand(true, (error, atomCommandName) => {
+    // Primary: chevron; compatibility: atom + apm (dual-support forever).
+    this.installChevronCommand(true, (error, chevronCommandName) => {
       if (error) return showErrorDialog(error);
-      this.installApmCommand(true, (error, apmCommandName) => {
+      this.installAtomCommand(true, (error, atomCommandName) => {
         if (error) return showErrorDialog(error);
-        this.applicationDelegate.confirm(
-          {
-            message: 'Commands installed.',
-            detail: `The shell commands \`${atomCommandName}\` and \`${apmCommandName}\` are installed.`
-          },
-          () => {}
-        );
+        this.installApmCommand(true, (error, apmCommandName) => {
+          if (error) return showErrorDialog(error);
+          this.applicationDelegate.confirm(
+            {
+              message: 'Commands installed.',
+              detail: `The shell commands \`${chevronCommandName}\`, \`${atomCommandName}\`, and \`${apmCommandName}\` are installed.`
+            },
+            () => {}
+          );
+        });
       });
     });
   }
@@ -58,7 +62,17 @@ module.exports = class CommandInstaller {
     }
   }
 
+  installChevronCommand(askForPrivilege, callback) {
+    this.installCommand(
+      path.join(this.getResourcesDirectory(), 'app', 'atom.sh'),
+      this.getCommandNameForChannel('chevron'),
+      askForPrivilege,
+      callback
+    );
+  }
+
   installAtomCommand(askForPrivilege, callback) {
+    // Compatibility shim: same launcher, Atom-era command name.
     this.installCommand(
       path.join(this.getResourcesDirectory(), 'app', 'atom.sh'),
       this.getCommandNameForChannel('atom'),

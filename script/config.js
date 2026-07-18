@@ -15,8 +15,19 @@ const intermediateAppPath = path.join(buildOutputPath, 'app');
 const symbolsPath = path.join(buildOutputPath, 'symbols');
 const electronDownloadPath = path.join(repositoryRootPath, 'electron');
 const homeDirPath = process.env.HOME || process.env.USERPROFILE;
-const atomHomeDirPath =
-  process.env.ATOM_HOME || path.join(homeDirPath, '.atom');
+// Dual-support config home (see src/atom-paths.js): CHEVRON_HOME → ATOM_HOME →
+// existing ~/.chevron → default ~/.atom.
+const atomHomeDirPath = (() => {
+  if (process.env.CHEVRON_HOME) return process.env.CHEVRON_HOME;
+  if (process.env.ATOM_HOME) return process.env.ATOM_HOME;
+  const chevronHome = path.join(homeDirPath, '.chevron');
+  try {
+    if (require('fs').existsSync(chevronHome)) return chevronHome;
+  } catch (_) {
+    /* ignore */
+  }
+  return path.join(homeDirPath, '.atom');
+})();
 
 const appMetadata = require(path.join(repositoryRootPath, 'package.json'));
 const apmMetadata = require(path.join(apmRootPath, 'package.json'));

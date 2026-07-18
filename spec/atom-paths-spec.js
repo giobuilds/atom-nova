@@ -15,6 +15,8 @@ describe('AtomPaths', () => {
   );
 
   afterEach(() => {
+    delete process.env.CHEVRON_HOME;
+    delete process.env.ATOM_HOME;
     atomPaths.setAtomHome(app.getPath('home'));
   });
 
@@ -22,6 +24,7 @@ describe('AtomPaths', () => {
     describe('when a portable .atom folder exists', () => {
       beforeEach(() => {
         delete process.env.ATOM_HOME;
+        delete process.env.CHEVRON_HOME;
         if (!fs.existsSync(portableAtomHomePath)) {
           fs.mkdirSync(portableAtomHomePath);
         }
@@ -29,6 +32,7 @@ describe('AtomPaths', () => {
 
       afterEach(() => {
         delete process.env.ATOM_HOME;
+        delete process.env.CHEVRON_HOME;
         fs.removeSync(portableAtomHomePath);
       });
 
@@ -51,11 +55,13 @@ describe('AtomPaths', () => {
     describe('when a portable folder does not exist', () => {
       beforeEach(() => {
         delete process.env.ATOM_HOME;
+        delete process.env.CHEVRON_HOME;
         fs.removeSync(portableAtomHomePath);
       });
 
       afterEach(() => {
         delete process.env.ATOM_HOME;
+        delete process.env.CHEVRON_HOME;
       });
 
       it('leaves ATOM_HOME unmodified if it was already set', () => {
@@ -65,10 +71,27 @@ describe('AtomPaths', () => {
         expect(process.env.ATOM_HOME).toEqual(temporaryHome);
       });
 
+      it('prefers CHEVRON_HOME over ATOM_HOME when both are set', () => {
+        const chevronHome = temp.mkdirSync('chevron-home-env');
+        const atomHome = temp.mkdirSync('atom-home-env');
+        process.env.CHEVRON_HOME = chevronHome;
+        process.env.ATOM_HOME = atomHome;
+        atomPaths.setAtomHome(app.getPath('home'));
+        expect(process.env.ATOM_HOME).toEqual(chevronHome);
+      });
+
       it('sets ATOM_HOME to a default location if not yet set', () => {
         const expectedPath = path.join(app.getPath('home'), '.atom');
         atomPaths.setAtomHome(app.getPath('home'));
         expect(process.env.ATOM_HOME).toEqual(expectedPath);
+      });
+
+      it('uses existing ~/.chevron when present and no env override', () => {
+        const home = temp.mkdirSync('chevron-default-home');
+        const chevronHome = path.join(home, '.chevron');
+        fs.mkdirSync(chevronHome);
+        atomPaths.setAtomHome(home);
+        expect(process.env.ATOM_HOME).toEqual(chevronHome);
       });
     });
   });
@@ -82,6 +105,7 @@ describe('AtomPaths', () => {
     beforeEach(() => {
       defaultElectronUserDataPath = app.getPath('userData');
       delete process.env.ATOM_HOME;
+      delete process.env.CHEVRON_HOME;
       tempAtomHomePath = temp.mkdirSync('atom-paths-specs-userdata-home');
       tempAtomConfigPath = path.join(tempAtomHomePath, '.atom');
       fs.mkdirSync(tempAtomConfigPath);
@@ -91,6 +115,7 @@ describe('AtomPaths', () => {
 
     afterEach(() => {
       delete process.env.ATOM_HOME;
+      delete process.env.CHEVRON_HOME;
       fs.removeSync(electronUserDataPath);
       try {
         temp.cleanupSync();

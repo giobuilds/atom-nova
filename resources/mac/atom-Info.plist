@@ -45,9 +45,10 @@
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>atom</string>
+				<string>chevron</string>
 			</array>
 			<key>CFBundleURLName</key>
-			<string>Chevron atom:// package protocol (Atom compatibility)</string>
+			<string>Chevron URI schemes (atom:// package API + chevron:// alias)</string>
 		</dict>
 	</array>
 	<key>CFBundleDocumentTypes</key>

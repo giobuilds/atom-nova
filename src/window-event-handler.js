@@ -306,8 +306,12 @@ module.exports = class WindowEventHandler {
     if (uri && uri[0] !== '#') {
       if (/^https?:\/\//.test(uri)) {
         this.applicationDelegate.openExternal(uri);
-      } else if (uri.startsWith('atom://')) {
-        this.atomEnvironment.uriHandlerRegistry.handleURI(uri);
+      } else if (uri.startsWith('atom://') || uri.startsWith('chevron://')) {
+        const normalized =
+          uri.startsWith('chevron://')
+            ? 'atom://' + uri.slice('chevron://'.length)
+            : uri;
+        this.atomEnvironment.uriHandlerRegistry.handleURI(normalized);
       }
     }
   }

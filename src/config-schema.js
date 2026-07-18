@@ -80,12 +80,12 @@ const configSchema = {
         type: 'string',
         default: 'prompt',
         description:
-          'When should Atom register itself as the default handler for atom:// URIs',
+          'When should Chevron register itself as the default handler for atom:// URIs (package compatibility)',
         enum: [
           {
             value: 'prompt',
             description:
-              'Prompt to register Atom as the default atom:// URI handler'
+              'Prompt to register Chevron as the default atom:// URI handler'
           },
           {
             value: 'always',

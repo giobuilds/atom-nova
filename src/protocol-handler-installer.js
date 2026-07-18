@@ -11,6 +11,7 @@ module.exports = class ProtocolHandlerInstaller {
   }
 
   async isDefaultProtocolClient() {
+    // Require atom:// (package API). chevron:// is registered as an alias.
     return ipcRenderer.invoke('isDefaultProtocolClient', {
       protocol: 'atom',
       path: process.execPath,
@@ -21,14 +22,20 @@ module.exports = class ProtocolHandlerInstaller {
   async setAsDefaultProtocolClient() {
     // This Electron API is only available on Windows and macOS. There might be some
     // hacks to make it work on Linux; see https://github.com/electron/electron/issues/6440
-    return (
-      this.isSupported() &&
-      ipcRenderer.invoke('setAsDefaultProtocolClient', {
-        protocol: 'atom',
-        path: process.execPath,
-        args: ['--uri-handler', '--']
-      })
-    );
+    if (!this.isSupported()) return false;
+    const args = ['--uri-handler', '--'];
+    const atomOk = await ipcRenderer.invoke('setAsDefaultProtocolClient', {
+      protocol: 'atom',
+      path: process.execPath,
+      args
+    });
+    // Best-effort alias for Chevron branding (dual-support forever).
+    await ipcRenderer.invoke('setAsDefaultProtocolClient', {
+      protocol: 'chevron',
+      path: process.execPath,
+      args
+    });
+    return atomOk;
   }
 
   async initialize(config, notifications) {
@@ -52,10 +59,12 @@ module.exports = class ProtocolHandlerInstaller {
         if (process.platform === 'win32') {
           // Only win32 supports deregistration
           const Registry = require('winreg');
-          const commandKey = new Registry({ hive: 'HKCR', key: `\\atom` });
-          commandKey.destroy((_err, _val) => {
-            /* no op */
-          });
+          for (const key of ['\\atom', '\\chevron']) {
+            const commandKey = new Registry({ hive: 'HKCR', key });
+            commandKey.destroy((_err, _val) => {
+              /* no op */
+            });
+          }
         }
         break;
       default:
