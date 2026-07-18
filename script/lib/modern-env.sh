@@ -158,10 +158,11 @@ export PYTHONUTF8="${PYTHONUTF8:-1}"
 
 # Windows: node-gyp / MSVC — prefer VS 2022 Build Tools when present.
 # (GitHub windows-latest images already include them; this helps local builds.)
+# Windows: leave msvs_version unset so node-gyp auto-detects via vswhere.
+# Pinning 2022 fails on images that only ship VS 18/2025/2026.
 case "$(uname -s 2>/dev/null)-${OS:-}" in
   MINGW*|MSYS*|CYGWIN*|*Windows_NT*)
-    export npm_config_msvs_version="${npm_config_msvs_version:-2022}"
-    export GYP_MSVS_VERSION="${GYP_MSVS_VERSION:-2022}"
+    unset npm_config_msvs_version GYP_MSVS_VERSION 2>/dev/null || true
     ;;
 esac
 

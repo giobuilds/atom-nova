@@ -316,7 +316,9 @@ jobs:
   # ---------------------------------------------------------------------------
   build-and-smoke-windows:
     name: Windows x64 bootstrap, build, smoke & packages
-    runs-on: windows-latest
+    # windows-2022 ships VS 2022 that node-gyp detects reliably.
+    # windows-latest currently has VS 18/2026 which older node-gyp mis-parses.
+    runs-on: windows-2022
     timeout-minutes: 150
     defaults:
       run:
