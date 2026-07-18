@@ -377,7 +377,9 @@ jobs:
           ./script/with-modern-env ./script/build --no-bootstrap --compress-artifacts
         env:
           PYTHONIOENCODING: utf-8
-          PYTHONUTF8: '1'      - name: Launch smoke test
+          PYTHONUTF8: '1'
+
+      - name: Launch smoke test
         run: node script/ci/smoke-test.js
 
       - name: Upload Windows packages
