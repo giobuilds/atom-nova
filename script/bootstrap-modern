@@ -107,6 +107,9 @@ node "$SCRIPT_DIR/lib/patch-apm-npm.js" "$REPO_ROOT"
 # Equivalent to atom-package-manager's script/postinstall.sh, but ordered so
 # gyp is patched first and host Node never drives node-gyp 5.
 if [ -d "$APM_PKG" ]; then
+  # Node 12 never shipped darwin-arm64; download x64 and run under Rosetta.
+  echo "Patching apm download-node for Apple Silicon (if needed)…"
+  node "$SCRIPT_DIR/lib/patch-apm-download-node.js" "$REPO_ROOT"
   if [ ! -x "$APM_NODE" ]; then
     echo "Downloading apm bundled Node 12…"
     (cd "$APM_PKG" && node script/download-node.js)
