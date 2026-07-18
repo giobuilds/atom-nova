@@ -221,22 +221,26 @@ rebuild_package_modern() {
 if [ "$ELECTRON_MAJOR" -ge 20 ]; then
   echo "Electron $ELECTRON_VERSION: apm's node-gyp is too old; npm rebuild + modern gyp"
   (cd "$REPO_ROOT" && npm rebuild 2>&1) || {
-    echo "npm rebuild failed; trying per-package superstring rebuild…"
-    rebuild_package_modern "$REPO_ROOT/node_modules/superstring"
+    echo "npm rebuild failed; trying per-package native rebuilds…"
+    rebuild_package_modern "$REPO_ROOT/node_modules/superstring" || true
+    rebuild_package_modern "$REPO_ROOT/node_modules/tree-sitter" || true
+    rebuild_package_modern "$REPO_ROOT/node_modules/@atom/watcher" || true
   }
 elif "$REPO_ROOT/apm/node_modules/atom-package-manager/bin/apm" rebuild 2>/dev/null; then
   echo "apm rebuild finished."
 else
   echo "apm rebuild unavailable; npm rebuild with target=$ELECTRON_VERSION"
   (cd "$REPO_ROOT" && npm rebuild 2>&1) || {
-    echo "npm rebuild failed; trying per-package superstring rebuild…"
+    echo "npm rebuild failed; trying per-package native rebuilds…"
     APM_NODE="$REPO_ROOT/apm/node_modules/atom-package-manager/bin/node"
     APM_GYP="$REPO_ROOT/apm/node_modules/atom-package-manager/node_modules/npm/node_modules/node-gyp/bin/node-gyp.js"
-    (cd "$REPO_ROOT/node_modules/superstring" && \
-      "$APM_NODE" "$APM_GYP" rebuild \
-        --target="$ELECTRON_VERSION" \
-        --dist-url="$ATOM_ELECTRON_URL" \
-        --arch="$(node -p "process.arch")")
+    for _pkg in superstring tree-sitter '@atom/watcher'; do
+      (cd "$REPO_ROOT/node_modules/$_pkg" && \
+        "$APM_NODE" "$APM_GYP" rebuild \
+          --target="$ELECTRON_VERSION" \
+          --dist-url="$ATOM_ELECTRON_URL" \
+          --arch="$(node -p "process.arch")") || true
+    done
   }
 fi
 
@@ -260,6 +264,22 @@ if [ -f "$REPO_ROOT/node_modules/keytar/build/Release/keytar.node" ]; then
   echo "keytar.node present."
 else
   echo "WARNING: keytar.node still missing — github package password storage will fail."
+fi
+
+# Critical: nested package copies (e.g. text-buffer/node_modules/superstring)
+# were made *before* Electron rebuild and lack build/Release/*.node. Without
+# this resync, packaged Linux boots die with "Cannot find module superstring.node".
+echo "Re-syncing nested natives from rebuilt root packages…"
+atomnova_resync_nested_built_natives "$REPO_ROOT"
+
+if [ ! -f "$REPO_ROOT/node_modules/superstring/build/Release/superstring.node" ]; then
+  echo "error: superstring.node missing after rebuild" >&2
+  exit 1
+fi
+if [ ! -f "$REPO_ROOT/node_modules/text-buffer/node_modules/superstring/build/Release/superstring.node" ] \
+  && [ -d "$REPO_ROOT/node_modules/text-buffer/node_modules/superstring" ]; then
+  echo "error: nested text-buffer superstring.node missing after resync" >&2
+  exit 1
 fi
 
 # --- Step 5: fingerprint -----------------------------------------------------

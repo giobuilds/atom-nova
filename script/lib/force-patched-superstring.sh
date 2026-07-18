@@ -12,11 +12,61 @@ _atomnova_ensure_nan_cache() {
   local nan_ver="2.17.0"
   local cache="/tmp/atomnova-nan-${nan_ver}"
   if [ ! -d "$cache/package" ]; then
-    echo "Fetching nan@${nan_ver}…"
+    # Status on stderr so $(...) only captures the path.
+    echo "Fetching nan@${nan_ver}…" >&2
     mkdir -p "$cache"
     (cd "$cache" && npm pack "nan@${nan_ver}" >/dev/null && tar xzf "nan-${nan_ver}.tgz")
   fi
   echo "$cache/package"
+}
+
+# After Electron rebuild of root natives, re-copy built trees into nested
+# package dirs (text-buffer/node_modules/superstring, etc.). Nested copies
+# made before rebuild lack build/Release/*.node and break packaged boots.
+atomnova_resync_nested_built_natives() {
+  local repo_root="${1:-$(pwd)}"
+  local npm_name base_name root_dest nested
+
+  for npm_name in superstring tree-sitter keytar '@atom/watcher'; do
+    root_dest="$repo_root/node_modules/$npm_name"
+    if [ ! -d "$root_dest" ]; then
+      continue
+    fi
+    base_name="$(basename "$npm_name")"
+    local node_bin=""
+    case "$npm_name" in
+      superstring) node_bin="$root_dest/build/Release/superstring.node" ;;
+      tree-sitter) node_bin="$root_dest/build/Release/tree_sitter_runtime_binding.node" ;;
+      keytar) node_bin="$root_dest/build/Release/keytar.node" ;;
+      '@atom/watcher') node_bin="$root_dest/build/Release/watcher.node" ;;
+    esac
+    if [ -n "$node_bin" ] && [ ! -f "$node_bin" ]; then
+      echo "WARNING: $npm_name missing built binary at $node_bin — nested resync may still fail" >&2
+    fi
+
+    while IFS= read -r nested; do
+      [ -z "$nested" ] && continue
+      case "$nested" in
+        */vendor/*|*/build/*) continue ;;
+      esac
+      [ -d "$nested" ] || continue
+      nested="$(cd "$nested" 2>/dev/null && pwd)" || continue
+      [ "$nested" = "$root_dest" ] && continue
+      [ "$(basename "$nested")" = "$base_name" ] || continue
+      if [[ "$npm_name" == @atom/* ]]; then
+        [ "$(basename "$(dirname "$nested")")" = "@atom" ] || continue
+      fi
+      echo "Re-sync nested $npm_name (with .node) → $nested"
+      rm -rf "$nested"
+      mkdir -p "$(dirname "$nested")"
+      if command -v rsync >/dev/null 2>&1; then
+        rsync -a "$root_dest/" "$nested/"
+      else
+        cp -R "$root_dest" "$nested"
+      fi
+    done < <(find "$repo_root/node_modules" -type d -name "$base_name" 2>/dev/null || true)
+  done
+  echo "Nested built natives re-synced from root."
 }
 
 atomnova_force_one_native() {
