@@ -367,18 +367,17 @@ jobs:
       - name: Bootstrap
         run: ./script/bootstrap-modern --ci
         env:
-          # VS "18" (2026) is on windows-latest; modern node-gyp finds it via PATH.
-          # Keep a soft preference for 2022 when present.
-          npm_config_msvs_version: '2022'
-          GYP_MSVS_VERSION: '2022'
+          # Do not pin msvs_version=2022 — windows-latest may only have VS 18/2026.
+          # node-gyp@11 (used on Windows rebuilds) auto-detects via vswhere + PATH.
+          PYTHONIOENCODING: utf-8
+          PYTHONUTF8: '1'
 
       - name: Build + package (zip)
         run: |
           ./script/with-modern-env ./script/build --no-bootstrap --compress-artifacts
         env:
-          npm_config_msvs_version: '2022'
-          GYP_MSVS_VERSION: '2022'
-      - name: Launch smoke test
+          PYTHONIOENCODING: utf-8
+          PYTHONUTF8: '1'      - name: Launch smoke test
         run: node script/ci/smoke-test.js
 
       - name: Upload Windows packages

@@ -114,19 +114,26 @@ if [ -d "$APM_PKG" ]; then
     echo "Downloading apm bundled Node 12…"
     (cd "$APM_PKG" && node script/download-node.js)
   fi
-  # Rebuild apm natives for Node 12 ABI. Prefer modern node-gyp (finds VS 2022/18);
-  # apm's bundled node-gyp 5 only knows up to older VS versions.
+  # Rebuild apm natives for Node 12 ABI.
+  # Windows runners ship VS "18"/2026 which node-gyp 5–9 may not map; use
+  # node-gyp@11 via npx on Windows. POSIX keeps script/node_modules node-gyp.
   rebuild_apm_native() {
     local pkg_dir="$1"
     local label="$2"
     [ -d "$pkg_dir" ] || return 0
     echo "Rebuilding apm native: $label"
-    if [ -x "$MODERN_GYP" ]; then
+    local arch
+    arch="$(node -p "process.arch")"
+    if [ "${OS:-}" = "Windows_NT" ] || [[ "$(uname -s 2>/dev/null)" == MINGW* ]] || [[ "$(uname -s 2>/dev/null)" == MSYS* ]]; then
+      (cd "$pkg_dir" && npx --yes node-gyp@11 rebuild \
+        --target=12.14.1 \
+        --dist-url=https://nodejs.org/dist \
+        --arch="$arch") || return 1
+    elif [ -x "$MODERN_GYP" ]; then
       (cd "$pkg_dir" && "$MODERN_GYP" rebuild \
         --target=12.14.1 \
         --dist-url=https://nodejs.org/dist \
-        --arch="$(node -p "process.arch")" \
-        ${npm_config_msvs_version:+--msvs_version="$npm_config_msvs_version"}) || return 1
+        --arch="$arch") || return 1
     elif [ -f "$APM_GYP" ] && [ -x "$APM_NODE" ]; then
       (cd "$pkg_dir" && "$APM_NODE" "$APM_GYP" rebuild) || return 1
     else
@@ -248,10 +255,21 @@ export npm_config_arch="${npm_config_arch:-$(node -p "process.arch")}"
 # out apm's bundled node-gyp 5. Use script/node_modules' node-gyp instead.
 MODERN_GYP="$REPO_ROOT/script/node_modules/.bin/node-gyp"
 rebuild_package_modern() {
-  (cd "$1" && "$MODERN_GYP" rebuild \
-    --target="$ELECTRON_VERSION" \
-    --dist-url="$ATOM_ELECTRON_URL" \
-    --arch="$(node -p "process.arch")")
+  local pkg="$1"
+  local arch
+  arch="$(node -p "process.arch")"
+  if [ "${OS:-}" = "Windows_NT" ] || [[ "$(uname -s 2>/dev/null)" == MINGW* ]] || [[ "$(uname -s 2>/dev/null)" == MSYS* ]]; then
+    # node-gyp@11 understands VS 2022/2025/2026 year codes on windows-latest.
+    (cd "$pkg" && npx --yes node-gyp@11 rebuild \
+      --target="$ELECTRON_VERSION" \
+      --dist-url="$ATOM_ELECTRON_URL" \
+      --arch="$arch")
+  else
+    (cd "$pkg" && "$MODERN_GYP" rebuild \
+      --target="$ELECTRON_VERSION" \
+      --dist-url="$ATOM_ELECTRON_URL" \
+      --arch="$arch")
+  fi
 }
 
 if [ "$ELECTRON_MAJOR" -ge 20 ]; then
