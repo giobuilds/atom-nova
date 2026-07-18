@@ -258,16 +258,20 @@ rebuild_package_modern() {
   local pkg="$1"
   local arch
   arch="$(node -p "process.arch")"
+  # Always target Electron runtime so natives link against Electron's V8,
+  # not host Node (Windows fails with unresolved GetBackingStore otherwise).
   if [ "${OS:-}" = "Windows_NT" ] || [[ "$(uname -s 2>/dev/null)" == MINGW* ]] || [[ "$(uname -s 2>/dev/null)" == MSYS* ]]; then
-    # node-gyp@11 understands VS 2022/2025/2026 year codes on windows-latest.
+    # node-gyp@11 understands VS 2022/2025/2026 year codes.
     (cd "$pkg" && npx --yes node-gyp@11 rebuild \
       --target="$ELECTRON_VERSION" \
       --dist-url="$ATOM_ELECTRON_URL" \
+      --runtime=electron \
       --arch="$arch")
   else
     (cd "$pkg" && "$MODERN_GYP" rebuild \
       --target="$ELECTRON_VERSION" \
       --dist-url="$ATOM_ELECTRON_URL" \
+      --runtime=electron \
       --arch="$arch")
   fi
 }
