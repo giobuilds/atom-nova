@@ -279,7 +279,7 @@ rebuild_package_modern() {
 if [ "$ELECTRON_MAJOR" -ge 20 ]; then
   echo "Electron $ELECTRON_VERSION: apm's node-gyp is too old; npm rebuild + modern gyp"
   (cd "$REPO_ROOT" && npm rebuild 2>&1) || {
-    echo "npm rebuild failed; trying per-package native rebuilds…"
+    echo "npm rebuild failed; trying per-package native rebuilds..."
     rebuild_package_modern "$REPO_ROOT/node_modules/superstring" || true
     rebuild_package_modern "$REPO_ROOT/node_modules/tree-sitter" || true
     rebuild_package_modern "$REPO_ROOT/node_modules/@atom/watcher" || true
@@ -289,7 +289,7 @@ elif "$REPO_ROOT/apm/node_modules/atom-package-manager/bin/apm" rebuild 2>/dev/n
 else
   echo "apm rebuild unavailable; npm rebuild with target=$ELECTRON_VERSION"
   (cd "$REPO_ROOT" && npm rebuild 2>&1) || {
-    echo "npm rebuild failed; trying per-package native rebuilds…"
+    echo "npm rebuild failed; trying per-package native rebuilds..."
     APM_NODE="$REPO_ROOT/apm/node_modules/atom-package-manager/bin/node"
     APM_GYP="$REPO_ROOT/apm/node_modules/atom-package-manager/node_modules/npm/node_modules/node-gyp/bin/node-gyp.js"
     for _pkg in superstring tree-sitter '@atom/watcher'; do
