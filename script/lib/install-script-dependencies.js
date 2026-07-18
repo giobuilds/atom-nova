@@ -49,7 +49,7 @@ function finishScriptDepsWithoutMksnapshot(ci) {
   // Packages that normally compile / fetch binaries during install.
   for (const pkg of ['fs-admin', 'leveldown']) {
     try {
-      console.log(`Rebuilding ${pkg}…`);
+      console.log(`Rebuilding ${pkg}...`);
       execFileSync(
         CONFIG.getNpmBinPath(ci),
         ['rebuild', pkg, '--loglevel=error'],
@@ -97,7 +97,7 @@ function runNodeModuleScript(packageName, scriptFile, label) {
     return;
   }
   try {
-    console.log(`Running ${label}…`);
+    console.log(`Running ${label}...`);
     execFileSync(process.execPath, [scriptPath], {
       env: process.env,
       cwd: path.dirname(scriptPath),

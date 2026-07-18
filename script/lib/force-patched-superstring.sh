@@ -13,7 +13,7 @@ _atomnova_ensure_nan_cache() {
   local cache="/tmp/atomnova-nan-${nan_ver}"
   if [ ! -d "$cache/package" ]; then
     # Status on stderr so $(...) only captures the path.
-    echo "Fetching nan@${nan_ver}…" >&2
+    echo "Fetching nan@${nan_ver}..." >&2
     mkdir -p "$cache"
     (cd "$cache" && npm pack "nan@${nan_ver}" >/dev/null && tar xzf "nan-${nan_ver}.tgz")
   fi
