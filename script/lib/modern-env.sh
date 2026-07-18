@@ -163,6 +163,17 @@ export PYTHONUTF8="${PYTHONUTF8:-1}"
 case "$(uname -s 2>/dev/null)-${OS:-}" in
   MINGW*|MSYS*|CYGWIN*|*Windows_NT*)
     unset npm_config_msvs_version GYP_MSVS_VERSION 2>/dev/null || true
+    # apm/npm invoke git-submodule; without GIT_EXEC_PATH, mingw git fails with
+    # "git-sh-setup: file not found" under Git for Windows.
+    for _git_exec in \
+      "/c/Program Files/Git/mingw64/libexec/git-core" \
+      "/mingw64/libexec/git-core" \
+      "$(dirname "$(command -v git 2>/dev/null || true)")/../libexec/git-core"; do
+      if [ -n "$_git_exec" ] && [ -f "$_git_exec/git-sh-setup" ]; then
+        export GIT_EXEC_PATH="$_git_exec"
+        break
+      fi
+    done
     ;;
 esac
 
