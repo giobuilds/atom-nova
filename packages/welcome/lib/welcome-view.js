@@ -36,7 +36,7 @@ export default class WelcomeView {
       <div className="welcome">
         <div className="welcome-container">
           <header className="welcome-header">
-            <a href="https://atom.io/">
+            <a href="https://github.com/builtbygio/chevron">
               <svg
                 className="welcome-logo"
                 width="330px"
@@ -88,42 +88,42 @@ export default class WelcomeView {
                 </g>
               </svg>
               <h1 className="welcome-title">
-                A hackable text editor for the 21<sup>st</sup> Century
+                Chevron — hackable. Fast. Yours.
               </h1>
             </a>
           </header>
 
           <section className="welcome-panel">
+            <p>
+              Chevron is a modernised fork of Atom. Package APIs stay{' '}
+              <code>atom://</code>-compatible.
+            </p>
             <p>For help, please visit</p>
             <ul>
               <li>
                 The{' '}
                 <a
-                  href="https://www.atom.io/docs"
-                  dataset={{ event: 'atom-docs' }}
+                  href="https://github.com/builtbygio/chevron"
+                  dataset={{ event: 'chevron-repo' }}
                 >
-                  Atom docs
+                  Chevron repository
                 </a>{' '}
-                for Guides and the API reference.
+                for docs, issues, and releases.
               </li>
               <li>
-                The Atom forum at{' '}
-                <a
-                  href="https://github.com/atom/atom/discussions"
-                  dataset={{ event: 'discussions' }}
-                >
-                  Github Discussions
-                </a>
+                Community packages still work with the Atom package API (
+                <code>global.atom</code>, <code>engines.atom</code>,{' '}
+                <code>apm</code>).
               </li>
               <li>
-                The{' '}
+                Historical Atom references:{' '}
                 <a
-                  href="https://github.com/atom"
-                  dataset={{ event: 'atom-org' }}
+                  href="https://github.com/atom/atom"
+                  dataset={{ event: 'atom-archive' }}
                 >
-                  Atom org
+                  atom/atom archive
                 </a>
-                . This is where all GitHub-created Atom packages can be found.
+                .
               </li>
             </ul>
           </section>
@@ -136,13 +136,16 @@ export default class WelcomeView {
                 checked={atom.config.get('welcome.showOnStartup')}
                 onchange={this.didChangeShowOnStartup}
               />
-              Show Welcome Guide when opening Atom
+              Show Welcome Guide when opening Chevron
             </label>
           </section>
 
           <footer className="welcome-footer">
-            <a href="https://atom.io/" dataset={{ event: 'footer-atom-io' }}>
-              atom.io
+            <a
+              href="https://github.com/builtbygio/chevron"
+              dataset={{ event: 'footer-chevron' }}
+            >
+              builtbygio/chevron
             </a>{' '}
             <span className="text-subtle">×</span>{' '}
             <a

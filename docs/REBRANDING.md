@@ -1,55 +1,43 @@
-# AtomNova Rebranding Checklist
+# Chevron rebranding
 
-## 1. Core Identity Decisions
+This document supersedes the historical AtomNova rebrand checklist.
 
-- [ ] Name: AtomNova (confirmed)
-- [ ] Tagline (choose one or draft your own):
-  - "The hackable text editor, reborn"
-  - "Modern revival of the beloved Atom editor"
-  - "Hackable. Fast. Yours."
-  - "Atom's legacy, evolved for the 2020s"
-- [ ] Description (for package.json, README, etc.):
-  ``` AtomNova is a community-driven revival of the Atom text editor. We are modernizing the codebase while preserving its legendary hackability. ```
-- [ ] Color Scheme (suggestion):
-  - Primary: Deep blue/purple gradient (nova = new star)
-  - Accent: Bright cyan or electric blue
-  - Keep some Atom heritage (green accents optional)
-- [ ] Logo/Icon Style: Modern atom/nova star fusion (glowing star + orbital paths)
+## Decisions (locked)
 
-## 2. Repository & Code Changes
+| Topic | Decision |
+|-------|----------|
+| Product name | **Chevron** |
+| Package name | `chevron` (`productName`: Chevron) |
+| Bundle ID | `dev.builtbygio.chevron` / `.helper` |
+| Atom ecosystem | **Dual-support forever** (`atom://`, `global.atom`, `engines.atom`, `~/.atom` / `ATOM_HOME`, `apm`) |
+| Intermediate brand | AtomNova is retired (tooling renames remaining) |
 
-- [ ] Rename the GitHub repository to `atomnova` (or `atom-nova`, `atomnova-editor`)
-- [ ] Update these files:
-  - `package.json` — `name`, `productName`, `description`, `repository`, `author`, `homepage`, `bugs`
-  - `electron-builder.yml` or build config — appId, productName, copyright
-  - `src/main-process/main.js` (or equivalent) — app name, window title
-  - All strings containing "Atom" in UI, menus, and code (use find/replace carefully)
-  - `README.md`, `CONTRIBUTING.md`, `docs/*`
-  - Any config files (`config.json`, `keymaps`, etc.)
-- [ ] Search the entire codebase for "atom" (case-insensitive) and decide what to keep (e.g., internal class names) vs replace.
+## Status
 
-## 3. Assets & Visuals
+| Phase | Description | Status |
+|-------|-------------|--------|
+| P0 | Recognize `chevron` package name; Squirrel apm shim; metadata fix | Done on `feat/chevron-rebrand` |
+| P1 | Crash / telemetry / copyright / protocol prompt strings | Done |
+| P2 | Bundle ID, installers, Linux install-from-source, atom.sh | Done |
+| P3 | Dual config home, `chevron://` alias, CLI `chevron`+`atom`+`apm` | Done |
+| P4 | Welcome / about / docs product copy | In progress |
+| P5 | Rename `atomnova_*` helpers → `chevron_*` | Pending |
 
-- [ ] App Icon (required sizes):
-  - `.ico` (Windows), `.icns` (macOS), `.png` (Linux)
-  - 1024x1024, 512x512, 256x256, etc.
-- [ ] Logo variants:
-  - Full logo with text "AtomNova"
-  - Icon-only version
-  - Dark/light mode versions
-- [ ] Update splash screen / about dialog image
-- [ ] Screenshots for README (plan to take fresh ones after updates)
-- [ ] Favicon for any web-related components
+## Leave forever
 
-## 4. Package Manager & Ecosystem
+- `global.atom`, `require('atom')`, `engines.atom`
+- Primary package URI scheme `atom://` (plus `chevron://` alias)
+- Theme package **names** (`atom-dark-ui`, …)
+- `@atom/*` npm package names and most upstream `github.com/atom/*` pins
 
-- [ ] Update package manager references (`apm` → `anpm` or keep compatible)
-- [ ] Registry URL if you're hosting your own (initially point to Pulsar/Atom community repo for compatibility)
-- [ ] Theme/package default names (e.g., `atom-nova-dark-ui`)
+## Dual-support forever
 
-## 5. Legal & Community
+| Surface | Behavior |
+|---------|----------|
+| Config home | `CHEVRON_HOME` → `ATOM_HOME` → portable → `~/.chevron` if exists → **`~/.atom`** |
+| Protocols | Register `atom` + `chevron`; normalize `chevron://` → `atom://` for packages |
+| CLI | Install `chevron` primary; keep `atom` + `apm` shims |
 
-- [ ] Update LICENSE file header if desired
-- [ ] Add `NOTICE` or `CREDITS` mentioning original Atom and contributors
-- [ ] Choose a domain (suggestions: `atomnova.dev`, `atomnova.app`, `getatomnova.dev`)
-- [ ] Social handles (GitHub, X/Twitter, Discord, etc.) — claim early
+## Verification
+
+Multi-platform CI after each phase. See the session plan for full acceptance checklist.

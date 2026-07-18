@@ -45,13 +45,13 @@ module.exports = class AboutView extends EtchComponent {
 
   handleTermsOfUseClick(e) {
     e.preventDefault();
-    shell.openExternal('https://atom.io/terms');
+    shell.openExternal('https://github.com/builtbygio/chevron/blob/master/LICENSE.md');
   }
 
   handleHowToUpdateClick(e) {
     e.preventDefault();
     shell.openExternal(
-      'https://flight-manual.atom.io/getting-started/sections/installing-atom/'
+      'https://github.com/builtbygio/chevron/blob/master/docs/build-instructions'
     );
   }
 
@@ -79,7 +79,10 @@ module.exports = class AboutView extends EtchComponent {
         $.header(
           { className: 'about-header' },
           $.a(
-            { className: 'about-atom-io', href: 'https://atom.io' },
+            {
+              className: 'about-atom-io',
+              href: 'https://github.com/builtbygio/chevron'
+            },
             $(AtomLogo)
           ),
           $.div(
