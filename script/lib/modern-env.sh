@@ -82,8 +82,15 @@ for _candidate in \
   "$(command -v python3.13 2>/dev/null || true)" \
   /usr/local/bin/python3.11 \
   /opt/homebrew/bin/python3.11 \
-  "$(command -v python3.11 2>/dev/null || true)"; do
-  if [ -n "$_candidate" ] && [ -x "$_candidate" ]; then
+  "$(command -v python3.11 2>/dev/null || true)" \
+  "$(command -v python3 2>/dev/null || true)" \
+  "$(command -v python 2>/dev/null || true)"; do
+  # Skip empty / non-executable (Windows Git Bash: -x can fail on .exe; -f is enough)
+  if [ -z "$_candidate" ]; then
+    continue
+  fi
+  if [ -x "$_candidate" ] || [ -f "$_candidate" ]; then
+    # Reject Windows Store python stub / wrong majors later via version check
     _python="$_candidate"
     break
   fi
@@ -91,8 +98,9 @@ done
 
 if [ -z "$_python" ]; then
   echo "error: Python 3.12, 3.13, or 3.11 not found (required for node-gyp / native rebuilds)." >&2
-  echo "  brew install python@3.12   # preferred (CI pin)" >&2
-  echo "  # or: brew install python@3.13 / python@3.11" >&2
+  echo "  macOS:  brew install python@3.12" >&2
+  echo "  Linux:  apt install python3.12 (or use pyenv/nvm-style pin)" >&2
+  echo "  Windows: install Python 3.12 and ensure it is on PATH (CI: actions/setup-python)" >&2
   return 1 2>/dev/null || exit 1
 fi
 
@@ -129,30 +137,76 @@ fi
 
 # Always point the unversioned shim at the selected interpreter so old Makefiles
 # (`env python`) and node-gyp discovery stay consistent with PYTHON/NODE_GYP_*.
-mkdir -p "$HOME/.local/bin"
-ln -sfn "$_python" "$HOME/.local/bin/python"
+# On Windows Git Bash, ln -sfn works; if not, fall back to a tiny wrapper script.
+mkdir -p "${HOME:-$USERPROFILE}/.local/bin"
+_atomnova_python_shim="${HOME:-$USERPROFILE}/.local/bin/python"
+if ln -sfn "$_python" "$_atomnova_python_shim" 2>/dev/null; then
+  :
+else
+  printf '#!/usr/bin/env bash\nexec "%s" "$@"\n' "$_python" >"$_atomnova_python_shim"
+  chmod +x "$_atomnova_python_shim" 2>/dev/null || true
+fi
 
 # Prefer shim + Homebrew libexec (unversioned names) on PATH. Active major first.
-export PATH="$HOME/.local/bin:/usr/local/opt/python@3.12/libexec/bin:/opt/homebrew/opt/python@3.12/libexec/bin:/usr/local/opt/python@3.13/libexec/bin:/opt/homebrew/opt/python@3.13/libexec/bin:/usr/local/opt/python@3.11/libexec/bin:/opt/homebrew/opt/python@3.11/libexec/bin:$PATH"
+export PATH="${HOME:-$USERPROFILE}/.local/bin:/usr/local/opt/python@3.12/libexec/bin:/opt/homebrew/opt/python@3.12/libexec/bin:/usr/local/opt/python@3.13/libexec/bin:/opt/homebrew/opt/python@3.13/libexec/bin:/usr/local/opt/python@3.11/libexec/bin:/opt/homebrew/opt/python@3.11/libexec/bin:$PATH"
 export PYTHON="$_python"
 export npm_config_python="$_python"
 export NODE_GYP_FORCE_PYTHON="$_python"
+# Avoid cp1252 UnicodeEncodeError on Windows console for bootstrap prints.
+export PYTHONIOENCODING="${PYTHONIOENCODING:-utf-8}"
+export PYTHONUTF8="${PYTHONUTF8:-1}"
+
+# Windows: node-gyp / MSVC — prefer VS 2022 Build Tools when present.
+# (GitHub windows-latest images already include them; this helps local builds.)
+# Windows: leave msvs_version unset so node-gyp auto-detects via vswhere.
+# Pinning 2022 fails on images that only ship VS 18/2025/2026.
+case "$(uname -s 2>/dev/null)-${OS:-}" in
+  MINGW*|MSYS*|CYGWIN*|*Windows_NT*)
+    unset npm_config_msvs_version GYP_MSVS_VERSION 2>/dev/null || true
+    # apm/npm invoke git-submodule; without GIT_EXEC_PATH, mingw git fails with
+    # "git-sh-setup: file not found" under Git for Windows.
+    for _git_exec in \
+      "/c/Program Files/Git/mingw64/libexec/git-core" \
+      "/mingw64/libexec/git-core" \
+      "$(dirname "$(command -v git 2>/dev/null || true)")/../libexec/git-core"; do
+      if [ -n "$_git_exec" ] && [ -f "$_git_exec/git-sh-setup" ]; then
+        export GIT_EXEC_PATH="$_git_exec"
+        # git-submodule does `. git-sh-setup` which resolves via PATH, not only GIT_EXEC_PATH.
+        export PATH="$_git_exec:$PATH"
+        break
+      fi
+    done
+    ;;
+esac
 
 # --- C++ standard / toolchain for Node/Electron headers ----------------------
 # Electron 20+ headers build with gnu++17, Electron 29+ with gnu++20; forcing
 # an older -std via CXXFLAGS overrides gyp's own and breaks V8 headers.
-_electron_version="$(node -p "require('$_atomnova_repo_root/package.json').electronVersion" 2>/dev/null || echo 0)"
+# On Windows, MSVC does not accept -std=gnu++*; leave flags to node-gyp/msvs.
+_electron_version="$(node -p "try{require(require('path').join(process.cwd(),'package.json')).electronVersion}catch(e){0}" 2>/dev/null || echo 0)"
+# Prefer absolute path; cwd may not be repo root when sourced.
+if [ -f "$_atomnova_repo_root/package.json" ]; then
+  _electron_version="$(node -p "try{require(process.argv[1]).electronVersion}catch(e){0}" "$_atomnova_repo_root/package.json" 2>/dev/null || echo "$_electron_version")"
+fi
 _electron_major="${_electron_version%%.*}"
 
-_atomnova_cxx_std="-std=c++17"
-if [ "${_electron_major:-0}" -ge 29 ] 2>/dev/null; then
-  _atomnova_cxx_std="-std=gnu++20"
-fi
-case " ${CXXFLAGS:-} " in
-  *" -std="* | "-std="* ) ;;
-  * ) export CXXFLAGS="${_atomnova_cxx_std}${CXXFLAGS:+ $CXXFLAGS}" ;;
+case "$(uname -s 2>/dev/null)-${OS:-}" in
+  MINGW*|MSYS*|CYGWIN*|*Windows_NT*)
+    # MSVC / clang-cl: do not inject gcc-style -std=
+    :
+    ;;
+  *)
+    _atomnova_cxx_std="-std=c++17"
+    if [ "${_electron_major:-0}" -ge 29 ] 2>/dev/null; then
+      _atomnova_cxx_std="-std=gnu++20"
+    fi
+    case " ${CXXFLAGS:-} " in
+      *" -std="* | "-std="* ) ;;
+      * ) export CXXFLAGS="${_atomnova_cxx_std}${CXXFLAGS:+ $CXXFLAGS}" ;;
+    esac
+    export npm_config_cxxflags="${npm_config_cxxflags:-$_atomnova_cxx_std}"
+    ;;
 esac
-export npm_config_cxxflags="${npm_config_cxxflags:-$_atomnova_cxx_std}"
 
 # Electron 40+ V8 headers need <source_location> (libc++ from Xcode 15).
 # The CLT on this host is clang 14; select Xcode.app per-process instead.
@@ -207,7 +261,7 @@ for path in root.rglob("input.py"):
     if new != text:
         path.write_text(new, encoding="utf-8")
         patched += 1
-        print(f"patched node-gyp rU→r: {path}")
+        print(f"patched node-gyp rU->r: {path}")
     # Drop cached bytecode that may still contain 'rU'
     pycache = path.parent / "__pycache__"
     if pycache.is_dir():
@@ -228,7 +282,7 @@ _atomnova_modern_env_loaded=1
 echo "AtomNova modern env:"
 echo "  Node:    $(node -v) ($(command -v node))"
 echo "  Python:  $($PYTHON --version 2>&1) ($PYTHON)"
-echo "  python:  $(command -v python) → $(python --version 2>&1)"
-echo "  CXXFLAGS: $CXXFLAGS"
-echo "  ATOM_ELECTRON_URL: $ATOM_ELECTRON_URL"
-echo "  ATOM_RESOURCE_PATH: $ATOM_RESOURCE_PATH"
+echo "  python:  $(command -v python) -> $(python --version 2>&1)"
+echo "  CXXFLAGS: ${CXXFLAGS:-}"
+echo "  ATOM_ELECTRON_URL: ${ATOM_ELECTRON_URL:-}"
+echo "  ATOM_RESOURCE_PATH: ${ATOM_RESOURCE_PATH:-}"

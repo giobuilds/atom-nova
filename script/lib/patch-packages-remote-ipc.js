@@ -241,4 +241,4 @@ try {
   console.error('patch-github-remote failed:', error.message);
 }
 
-console.log('package remote→IPC patches finished');
+console.log('package remote->IPC patches finished');

@@ -25,7 +25,8 @@ module.exports = function() {
     appBundleId: 'com.github.atom',
     appCopyright: `Copyright © 2014-${new Date().getFullYear()} GitHub, Inc. All rights reserved.`,
     appVersion: CONFIG.appMetadata.version,
-    arch: process.platform === 'darwin' ? 'x64' : HOST_ARCH, // OS X is 64-bit only
+    // Native arch on each host (Intel x64 or Apple Silicon arm64 on macOS).
+    arch: HOST_ARCH,
     asar: { unpack: buildAsarUnpackGlobExpression() },
     buildVersion: CONFIG.appMetadata.version,
     derefSymlinks: false,
@@ -47,15 +48,21 @@ module.exports = function() {
       'atom'
     ),
     name: appName,
-    executableName: CONFIG.executableName,
+    // electron-packager appends .exe on Windows; CONFIG.executableName already
+    // includes it for installers/signing — strip so we get chevron.exe not
+    // chevron.exe.exe.
+    executableName:
+      process.platform === 'win32'
+        ? CONFIG.executableName.replace(/\.exe$/i, '')
+        : CONFIG.executableName,
     out: CONFIG.buildOutputPath,
     overwrite: true,
     platform: process.platform,
     // Atom doesn't have devDependencies, but if prune is true, it will delete the non-standard packageDependencies.
     prune: false,
     win32metadata: {
-      CompanyName: 'GitHub, Inc.',
-      FileDescription: 'Atom',
+      CompanyName: 'Chevron',
+      FileDescription: CONFIG.appName,
       ProductName: CONFIG.appName
     }
   }).then(packagedAppPath => {
@@ -235,7 +242,8 @@ function getAppName() {
   if (process.platform === 'darwin') {
     return CONFIG.appName;
   } else if (process.platform === 'win32') {
-    return CONFIG.channel === 'stable' ? 'atom' : `atom-${CONFIG.channel}`;
+    // electron-packager product folder name; binary is CONFIG.executableName (chevron.exe).
+    return CONFIG.appName.replace(/\s+/g, '-');
   } else {
     // Linux: electron-packager dir is <name>-linux-<arch> (e.g. Chevron-linux-x64).
     // Spaces in product names become awkward paths; normalize for non-stable channels.

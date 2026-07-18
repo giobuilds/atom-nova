@@ -88,7 +88,7 @@ for (const dir of nanDirs(path.join(repoRoot, 'node_modules'))) {
   fs.rmSync(dir, { recursive: true, force: true });
   fs.cpSync(rootNan, dir, { recursive: true });
   console.log(
-    `patch-nested-nan: ${path.relative(repoRoot, dir)} ${version} → ${rootVersion}`
+    `patch-nested-nan: ${path.relative(repoRoot, dir)} ${version} -> ${rootVersion}`
   );
   replaced++;
 }

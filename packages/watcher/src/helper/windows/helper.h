@@ -16,18 +16,15 @@ Result<std::wstring> to_wchar(const std::string &in);
 // Convert an 8.3 short path to a long path.
 Result<std::wstring> to_long_path(const std::wstring &short_path);
 
-template <class V = void *>
-Result<V> windows_error_result(const std::string &prefix)
-{
-  return windows_error_result<V>(prefix, GetLastError());
-}
-
+// MSVC requires the two-arg overload declared (or defined) before the one-arg
+// wrapper that calls it; otherwise C2672 "expects 1 arguments - 2 provided".
 template <class V = void *>
 Result<V> windows_error_result(const std::string &prefix, DWORD error_code)
 {
   LPVOID msg_buffer;
 
-  FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+  // Always use the ANSI API so this compiles with UNICODE/TCHAR builds (MSVC).
+  FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
     NULL,  // source
     error_code,  // message ID
     MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),  // language ID
@@ -47,6 +44,12 @@ Result<V> windows_error_result(const std::string &prefix, DWORD error_code)
   LocalFree(msg_buffer);
 
   return Result<V>::make_error(msg.str());
+}
+
+template <class V = void *>
+Result<V> windows_error_result(const std::string &prefix)
+{
+  return windows_error_result<V>(prefix, GetLastError());
 }
 
 #endif

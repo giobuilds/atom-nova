@@ -9,11 +9,14 @@
 export PATH="/bin:/usr/bin:/usr/local/bin:/opt/homebrew/bin:${PATH:-}"
 
 _atomnova_ensure_nan_cache() {
-  local nan_ver="2.17.0"
-  local cache="/tmp/atomnova-nan-${nan_ver}"
+  # Electron 43 / V8 13+ needs nan >= 2.22 (ScriptOrigin / External::Value APIs).
+  # Keep this in sync with root package-lock nan.
+  local nan_ver="2.28.0"
+  # Prefer OS temp (Windows Git Bash: $TMPDIR or /tmp may differ).
+  local cache="${TMPDIR:-/tmp}/atomnova-nan-${nan_ver}"
   if [ ! -d "$cache/package" ]; then
     # Status on stderr so $(...) only captures the path.
-    echo "Fetching nan@${nan_ver}…" >&2
+    echo "Fetching nan@${nan_ver}..." >&2
     mkdir -p "$cache"
     (cd "$cache" && npm pack "nan@${nan_ver}" >/dev/null && tar xzf "nan-${nan_ver}.tgz")
   fi
@@ -56,7 +59,7 @@ atomnova_resync_nested_built_natives() {
       if [[ "$npm_name" == @atom/* ]]; then
         [ "$(basename "$(dirname "$nested")")" = "@atom" ] || continue
       fi
-      echo "Re-sync nested $npm_name (with .node) → $nested"
+      echo "Re-sync nested $npm_name (with .node) -> $nested"
       rm -rf "$nested"
       mkdir -p "$(dirname "$nested")"
       if command -v rsync >/dev/null 2>&1; then
@@ -85,7 +88,7 @@ atomnova_force_one_native() {
 
   mkdir -p "$(dirname "$root_dest")"
   rm -rf "$root_dest"
-  echo "Installing patched $package_name → node_modules/$npm_name"
+  echo "Installing patched $package_name -> node_modules/$npm_name"
   mkdir -p "$root_dest"
   # Prefer a real directory copy (not a symlink) so electron-packager with
   # derefSymlinks:false still ships the package into the asar tree.
@@ -134,7 +137,7 @@ atomnova_force_one_native() {
   local link_target
   for link_target in "${to_link[@]+"${to_link[@]}"}"; do
     [ -n "$link_target" ] || continue
-    echo "Copying nested $package_name → $link_target"
+    echo "Copying nested $package_name -> $link_target"
     rm -rf "$link_target"
     mkdir -p "$(dirname "$link_target")"
     if command -v rsync >/dev/null 2>&1; then
@@ -165,7 +168,7 @@ atomnova_upgrade_nan_for_electron14() {
     else
       needs_upgrade="$(node -e "
         const v=process.argv[1].split('.').map(Number);
-        const min=[2,15,0];
+        const min=[2,22,0];
         let lt=false;
         for (let i=0;i<3;i++){
           if ((v[i]||0)<min[i]){lt=true;break;}
@@ -175,7 +178,7 @@ atomnova_upgrade_nan_for_electron14() {
       " "$ver" 2>/dev/null || echo 0)"
     fi
     if [ "$needs_upgrade" = "1" ]; then
-      echo "Upgrading nan ${ver:-unknown} → 2.17.0 at $nan_dir"
+      echo "Upgrading nan ${ver:-unknown} -> 2.28.0 at $nan_dir"
       rm -rf "$nan_dir"
       mkdir -p "$(dirname "$nan_dir")"
       cp -R "$nan_src" "$nan_dir"
@@ -207,6 +210,12 @@ atomnova_force_patched_natives() {
 
   if grep -R "GetContents()" "$repo_root/node_modules/superstring/src" --include='*.cc' 2>/dev/null | grep -v '//'; then
     echo "error: superstring still has GetContents() calls" >&2
+    return 1
+  fi
+  # GetBackingStore() returns std::shared_ptr and does not link on Windows MSVC
+  # against Electron's Chromium-libc++ node.lib (std::__Cr). Use Data() instead.
+  if grep -R "GetBackingStore()" "$repo_root/node_modules/superstring/src" --include='*.cc' 2>/dev/null | grep -v '//'; then
+    echo "error: superstring still has GetBackingStore() calls (use ArrayBuffer::Data())" >&2
     return 1
   fi
   echo "Patched native packages are in place."

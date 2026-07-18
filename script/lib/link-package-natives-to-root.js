@@ -40,7 +40,7 @@ module.exports = function linkPackageNativesToRoot(repoRoot, packagePath) {
         continue;
       }
       console.log(
-        `  linking nested native ${rel} → ${path.relative(repoRoot, match)}`
+        `  linking nested native ${rel} -> ${path.relative(repoRoot, match)}`
       );
       fs.removeSync(match);
       fs.ensureDirSync(path.dirname(match));

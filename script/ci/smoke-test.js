@@ -31,18 +31,48 @@ const PORT = 9451;
 const STARTUP_TIMEOUT_MS = 120 * 1000;
 const MIN_ACTIVE_PACKAGES = 50;
 
+function listOutDirs() {
+  const outDir = path.join(REPO_ROOT, 'out');
+  if (!fs.existsSync(outDir)) {
+    throw new Error('out/ does not exist; build the app first');
+  }
+  return fs
+    .readdirSync(outDir)
+    .map(name => path.join(outDir, name))
+    .filter(p => {
+      try {
+        return fs.statSync(p).isDirectory();
+      } catch (error) {
+        return false;
+      }
+    });
+}
+
+function isExecutableFile(candidate) {
+  try {
+    if (!fs.statSync(candidate).isFile()) return false;
+    // Windows: X_OK is not meaningful for .exe the same way; existence is enough.
+    if (process.platform === 'win32') return true;
+    fs.accessSync(candidate, fs.constants.X_OK);
+    return true;
+  } catch (error) {
+    return false;
+  }
+}
+
 function findAppBinary(appArg) {
   if (process.platform === 'darwin') {
     let bundle = appArg;
     if (!bundle) {
-      const outDir = path.join(REPO_ROOT, 'out');
-      const names = fs.readdirSync(outDir).filter(name => name.endsWith('.app'));
+      const names = listOutDirs()
+        .map(p => path.basename(p))
+        .filter(name => name.endsWith('.app'));
       // Prefer Chevron.app if both exist during rebrand transitions
       const preferred =
         names.find(n => /^Chevron/i.test(n)) ||
         names.find(n => /^Atom/i.test(n)) ||
         names[0];
-      bundle = preferred ? path.join(outDir, preferred) : null;
+      bundle = preferred ? path.join(REPO_ROOT, 'out', preferred) : null;
     }
     if (!bundle) throw new Error('no .app bundle found in out/');
     const macOSDir = path.join(bundle, 'Contents', 'MacOS');
@@ -51,31 +81,64 @@ function findAppBinary(appArg) {
       .map(name => path.join(macOSDir, name))[0];
     return binary;
   }
+
+  if (process.platform === 'win32') {
+    // Packaged layout: out/Chevron/chevron.exe or out/Chevron x64/chevron.exe
+    let appDir = appArg;
+    if (!appDir) {
+      const candidates = listOutDirs().filter(p => {
+        const base = path.basename(p);
+        return /^(Chevron|Atom|chevron|atom)/i.test(base);
+      });
+      candidates.sort((a, b) => {
+        const score = p => {
+          const base = path.basename(p);
+          if (/^Chevron/i.test(base)) return 0;
+          if (/^chevron/i.test(base)) return 1;
+          if (/^Atom/i.test(base)) return 2;
+          return 3;
+        };
+        return score(a) - score(b);
+      });
+      appDir = candidates[0];
+    }
+    if (!appDir) {
+      throw new Error('no packaged Windows app directory found in out/');
+    }
+    const preferredNames = [
+      'chevron.exe',
+      'chevron-beta.exe',
+      'chevron-nightly.exe',
+      'chevron-dev.exe',
+      'atom.exe',
+      'Atom.exe'
+    ];
+    for (const name of preferredNames) {
+      const candidate = path.join(appDir, name);
+      if (isExecutableFile(candidate)) return candidate;
+    }
+    const binary = fs
+      .readdirSync(appDir)
+      .filter(name => /\.exe$/i.test(name))
+      .map(name => path.join(appDir, name))
+      .find(isExecutableFile);
+    if (!binary) {
+      throw new Error(`no .exe found in ${appDir}`);
+    }
+    return binary;
+  }
+
   // Linux: electron-packager dir e.g. out/Chevron-linux-x64/chevron
   let appDir = appArg;
   if (!appDir) {
-    const outDir = path.join(REPO_ROOT, 'out');
-    if (!fs.existsSync(outDir)) {
-      throw new Error('out/ does not exist; build the app first');
-    }
-    const candidates = fs
-      .readdirSync(outDir)
-      .map(name => path.join(outDir, name))
-      .filter(p => {
-        try {
-          return fs.statSync(p).isDirectory();
-        } catch (error) {
-          return false;
-        }
-      })
-      .filter(p => {
-        const base = path.basename(p);
-        // Prefer packager layout; also accept legacy atom-<ver>-<arch> dirs.
-        return (
-          base.includes('-linux-') ||
-          /^(Chevron|Atom|chevron|atom)([-_]|$)/i.test(base)
-        );
-      });
+    const candidates = listOutDirs().filter(p => {
+      const base = path.basename(p);
+      // Prefer packager layout; also accept legacy atom-<ver>-<arch> dirs.
+      return (
+        base.includes('-linux-') ||
+        /^(Chevron|Atom|chevron|atom)([-_]|$)/i.test(base)
+      );
+    });
     // Prefer product-named dirs (Chevron-linux-*) over legacy Atom-*
     candidates.sort((a, b) => {
       const score = p => {
@@ -103,12 +166,7 @@ function findAppBinary(appArg) {
   ];
   for (const name of preferredNames) {
     const candidate = path.join(appDir, name);
-    try {
-      fs.accessSync(candidate, fs.constants.X_OK);
-      if (fs.statSync(candidate).isFile()) return candidate;
-    } catch (error) {
-      /* try next */
-    }
+    if (isExecutableFile(candidate)) return candidate;
   }
   // Last resort: any executable that is not a helper/script noise
   const skip = new Set([
@@ -120,14 +178,7 @@ function findAppBinary(appArg) {
     .readdirSync(appDir)
     .filter(name => !skip.has(name))
     .map(name => path.join(appDir, name))
-    .find(candidate => {
-      try {
-        fs.accessSync(candidate, fs.constants.X_OK);
-        return fs.statSync(candidate).isFile();
-      } catch (error) {
-        return false;
-      }
-    });
+    .find(isExecutableFile);
   if (!binary) {
     throw new Error(`no executable found in ${appDir}`);
   }
@@ -510,17 +561,18 @@ async function main() {
       process.exit(0);
     }
 
-    // Linux Xvfb: CDP isolated-world eval is flaky even when the app boots.
-    // Accept package-boot smoke when packages activate, or when the window
-    // title shows our probe files opened (app is clearly running).
-    if (process.platform === 'linux') {
+    // Linux Xvfb / Windows CI: CDP isolated-world eval can flake even when the
+    // app boots. Accept package-boot smoke when packages activate, or when the
+    // window title shows our probe files opened (app is clearly running).
+    if (process.platform === 'linux' || process.platform === 'win32') {
+      const bootLabel = process.platform === 'win32' ? 'windows-boot' : 'linux-boot';
       if (
         bestBoot &&
         bestBoot.packagesActive >= MIN_ACTIVE_PACKAGES
       ) {
         console.log(
-          'smoke-test: full editor probe incomplete under Xvfb; ' +
-            `accepting Linux package-boot smoke (${bestBoot.packagesActive} packages active)`
+          'smoke-test: full editor probe incomplete under CI display; ' +
+            `accepting ${bootLabel} smoke (${bestBoot.packagesActive} packages active)`
         );
         console.log(
           'smoke-test: best boot state',
@@ -534,7 +586,7 @@ async function main() {
           process.exit(1);
         }
         console.log(
-          `smoke-test: PASSED (linux-boot) with ${bestBoot.packagesActive} packages active`
+          `smoke-test: PASSED (${bootLabel}) with ${bestBoot.packagesActive} packages active`
         );
         process.exit(0);
       }
@@ -551,7 +603,7 @@ async function main() {
             'smoke-test: full CDP probe incomplete; window title shows probes open:',
             title
           );
-          console.log('smoke-test: PASSED (linux-boot via window title)');
+          console.log(`smoke-test: PASSED (${bootLabel} via window title)`);
           process.exit(0);
         }
       } catch (error) {

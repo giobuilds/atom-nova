@@ -12,12 +12,20 @@ concurrency:
 
 jobs:
   # ---------------------------------------------------------------------------
-  # macOS — proven host path (x64 intel runners until Fall 2027)
+  # macOS — Intel x64 + Apple Silicon arm64
   # ---------------------------------------------------------------------------
   build-and-smoke-macos:
-    name: macOS bootstrap, build & smoke
-    runs-on: macos-15-intel
-    timeout-minutes: 90
+    name: macOS ${{ matrix.arch }} bootstrap, build & smoke
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-15-intel
+            arch: x64
+          - os: macos-15
+            arch: arm64
 
     steps:
       - uses: actions/checkout@v5
@@ -49,32 +57,42 @@ jobs:
             ~/Library/Caches/electron
             ~/.npm
             ~/.atom/.apm
-          key: ${{ runner.os }}-node24-py312-electron-${{ hashFiles('package.json', 'package-lock.json', 'script/package.json', 'script/package-lock.json') }}
+          key: ${{ runner.os }}-${{ matrix.arch }}-node24-py312-electron-${{ hashFiles('package.json', 'package-lock.json', 'script/package.json', 'script/package-lock.json') }}
           restore-keys: |
+            ${{ runner.os }}-${{ matrix.arch }}-node24-py312-electron-
             ${{ runner.os }}-node24-py312-electron-
-            ${{ runner.os }}-electron-
 
       - name: Bootstrap
         run: ./script/bootstrap-modern --ci
 
       - name: Build
-        run: ./script/with-modern-env ./script/build --no-bootstrap
+        run: ./script/with-modern-env ./script/build --no-bootstrap --compress-artifacts
 
       - name: Launch smoke test
         run: node script/ci/smoke-test.js
+
+      - name: Upload macOS packages
+        if: success()
+        uses: actions/upload-artifact@v6
+        with:
+          name: chevron-macos-${{ matrix.arch }}
+          path: |
+            out/*.zip
+            out/*.app
+          if-no-files-found: warn
 
       - name: Upload build output on failure
         if: failure()
         uses: actions/upload-artifact@v6
         with:
-          name: build-state-macos
+          name: build-state-macos-${{ matrix.arch }}
           path: |
             out/startup.js
             ${{ github.workspace }}/npm-debug.log
           if-no-files-found: ignore
 
   # ---------------------------------------------------------------------------
-  # Linux x64 — L1 smoke + L2 deb/tar artifacts
+  # Linux x64 — deb + tar + rpm
   # ---------------------------------------------------------------------------
   build-and-smoke-linux:
     name: Linux x64 bootstrap, build, smoke & packages
@@ -149,19 +167,16 @@ jobs:
       - name: Bootstrap
         run: ./script/bootstrap-modern --ci
 
-      - name: Build + package (deb, tar; rpm best-effort)
+      - name: Build + package (deb, tar, rpm)
         run: |
           set -euo pipefail
-          # deb + tar are required; rpm is best-effort (rpmbuild quirks on Ubuntu).
-          if ! ./script/with-modern-env ./script/build --no-bootstrap \
+          command -v rpmbuild
+          ./script/with-modern-env ./script/build --no-bootstrap \
             --create-debian-package \
-            --compress-artifacts \
-            --create-rpm-package; then
-            echo "WARNING: build with rpm failed; retrying without --create-rpm-package"
-            ./script/with-modern-env ./script/build --no-bootstrap \
-              --create-debian-package \
-              --compress-artifacts
-          fi
+            --create-rpm-package \
+            --compress-artifacts
+          # Require deb + tar + rpm artifacts
+          ls -la out/*.deb out/*.tar.gz out/*.rpm
 
       - name: Launch smoke test (Xvfb)
         run: xvfb-run -a node script/ci/smoke-test.js
@@ -175,7 +190,7 @@ jobs:
             out/*.deb
             out/*.rpm
             out/*.tar.gz
-          if-no-files-found: warn
+          if-no-files-found: error
 
       - name: Upload build output on failure
         if: failure()
@@ -188,7 +203,7 @@ jobs:
           if-no-files-found: ignore
 
   # ---------------------------------------------------------------------------
-  # Linux arm64 — L3 (same pipeline; non-blocking so scarce runners don't gate PRs)
+  # Linux arm64 — deb + tar + rpm (non-blocking if arm runners are scarce)
   # ---------------------------------------------------------------------------
   build-and-smoke-linux-arm64:
     name: Linux arm64 bootstrap, build, smoke & packages
@@ -262,11 +277,15 @@ jobs:
       - name: Bootstrap
         run: ./script/bootstrap-modern --ci
 
-      - name: Build + package (deb + tar)
+      - name: Build + package (deb, tar, rpm)
         run: |
+          set -euo pipefail
+          command -v rpmbuild
           ./script/with-modern-env ./script/build --no-bootstrap \
             --create-debian-package \
+            --create-rpm-package \
             --compress-artifacts
+          ls -la out/*.deb out/*.tar.gz out/*.rpm
 
       - name: Launch smoke test (Xvfb)
         run: xvfb-run -a node script/ci/smoke-test.js
@@ -278,14 +297,113 @@ jobs:
           name: chevron-linux-arm64
           path: |
             out/*.deb
+            out/*.rpm
             out/*.tar.gz
-          if-no-files-found: warn
+          if-no-files-found: error
 
       - name: Upload build output on failure
         if: failure()
         uses: actions/upload-artifact@v6
         with:
           name: build-state-linux-arm64
+          path: |
+            out/startup.js
+            ${{ github.workspace }}/npm-debug.log
+          if-no-files-found: ignore
+
+  # ---------------------------------------------------------------------------
+  # Windows x64 — bootstrap, build, smoke, zip artifact
+  # ---------------------------------------------------------------------------
+  build-and-smoke-windows:
+    name: Windows x64 bootstrap, build, smoke & packages
+    # windows-2022 ships VS 2022 that node-gyp detects reliably.
+    # windows-latest currently has VS 18/2026 which older node-gyp mis-parses.
+    runs-on: windows-2022
+    timeout-minutes: 150
+    defaults:
+      run:
+        # bootstrap-modern / with-modern-env are bash; Git Bash is on the image.
+        shell: bash
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Use Node 24 (bootstrap host; apm keeps bundled Node 12)
+        uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+
+      - name: Use Python 3.12
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Install setuptools (distutils for node-gyp)
+        run: python -m pip install --upgrade pip setuptools
+
+      # Put cl.exe / link.exe on PATH so node-gyp (including old v5) can compile.
+      - name: Setup MSVC developer command prompt
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Rewrite git ssh URLs to https
+        run: |
+          git config --global url."https://github.com/".insteadOf "ssh://git@github.com/"
+          git config --global --add url."https://github.com/".insteadOf "git@github.com:"
+          git config --global --add url."https://github.com/".insteadOf "git://github.com/"
+
+      - name: Cache Electron headers, binaries and package caches
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/AppData/Local/node-gyp
+            ~/AppData/Local/electron
+            ~/.npm
+            ~/.atom/.apm
+          key: ${{ runner.os }}-${{ runner.arch }}-node24-py312-electron-${{ hashFiles('package.json', 'package-lock.json', 'script/package.json', 'script/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ runner.arch }}-node24-py312-electron-
+            ${{ runner.os }}-node24-py312-electron-
+
+      - name: Bootstrap
+        run: |
+          # Windows-style path: apm.cmd spawns git via cmd.exe, not Git Bash.
+          export GIT_EXEC_PATH="C:/Program Files/Git/mingw64/libexec/git-core"
+          export PATH="/c/Program Files/Git/mingw64/libexec/git-core:/c/Program Files/Git/cmd:$PATH"
+          ./script/bootstrap-modern --ci
+        env:
+          PYTHONIOENCODING: utf-8
+          PYTHONUTF8: "1"
+          GIT_EXEC_PATH: "C:/Program Files/Git/mingw64/libexec/git-core"
+
+      - name: Build + package (zip)
+        run: |
+          export GIT_EXEC_PATH="C:/Program Files/Git/mingw64/libexec/git-core"
+          export PATH="/c/Program Files/Git/mingw64/libexec/git-core:/c/Program Files/Git/cmd:$PATH"
+          ./script/with-modern-env ./script/build --no-bootstrap --compress-artifacts
+        env:
+          PYTHONIOENCODING: utf-8
+          PYTHONUTF8: "1"
+          GIT_EXEC_PATH: "C:/Program Files/Git/mingw64/libexec/git-core"
+
+      - name: Launch smoke test
+        run: node script/ci/smoke-test.js
+
+      - name: Upload Windows packages
+        if: success()
+        uses: actions/upload-artifact@v6
+        with:
+          name: chevron-windows-${{ runner.arch }}
+          path: |
+            out/*.zip
+          if-no-files-found: warn
+
+      - name: Upload build output on failure
+        if: failure()
+        uses: actions/upload-artifact@v6
+        with:
+          name: build-state-windows-${{ runner.arch }}
           path: |
             out/startup.js
             ${{ github.workspace }}/npm-debug.log
