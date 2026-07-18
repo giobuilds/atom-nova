@@ -1,7 +1,7 @@
 {
   "name": "@atom/watcher",
   "version": "1.3.5",
-  "description": "Atom filesystem watcher (AtomNova: V8 GetBackingStore for Electron 14+)",
+  "description": "Atom filesystem watcher (Chevron: V8 GetBackingStore for Electron 14+)",
   "main": "lib/index.js",
   "bin": "lib/cli.js",
   "scripts": {

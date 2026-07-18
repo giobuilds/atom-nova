@@ -212,5 +212,11 @@ atomnova_force_patched_natives() {
     echo "error: superstring still has GetContents() calls" >&2
     return 1
   fi
+  # GetBackingStore() returns std::shared_ptr and does not link on Windows MSVC
+  # against Electron's Chromium-libc++ node.lib (std::__Cr). Use Data() instead.
+  if grep -R "GetBackingStore()" "$repo_root/node_modules/superstring/src" --include='*.cc' 2>/dev/null | grep -v '//'; then
+    echo "error: superstring still has GetBackingStore() calls (use ArrayBuffer::Data())" >&2
+    return 1
+  fi
   echo "Patched native packages are in place."
 }

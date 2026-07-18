@@ -1,7 +1,7 @@
 {
   "name": "superstring",
   "version": "2.4.4",
-  "description": "A data structure to efficiently represent the results of applying patches. (AtomNova: V8 GetBackingStore for Electron 14+)",
+  "description": "A data structure to efficiently represent the results of applying patches. (Chevron: V8 GetBackingStore for Electron 14+)",
   "main": "./index",
   "browser": "./browser",
   "scripts": {

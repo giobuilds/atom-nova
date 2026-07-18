@@ -1,15 +1,19 @@
-# superstring (AtomNova fork)
+# superstring (Chevron fork)
 
 Vendored from `superstring@2.4.4` with a minimal V8 API patch for Electron 14+.
 
 ## Patch
 
 `ArrayBuffer::GetContents()` was removed in modern V8 (Electron 14+).
-Replaced with `GetBackingStore()->Data()` in `src/bindings/text-buffer-wrapper.cc`.
+Replaced with `ArrayBuffer::Data()` in `src/bindings/text-buffer-wrapper.cc`.
+
+Prefer `Data()` over `GetBackingStore()->Data()`: Electron's Windows `node.lib` is
+built with Chromium's libc++ (`std::__Cr`), so linking `GetBackingStore`'s
+`std::shared_ptr` return type fails under MSVC (LNK2001).
 
 ## Version
 
 Keep **`version` exactly `2.4.4`** (not a prerelease suffix).  
-`text-buffer` depends on `superstring@^2.4.4`; a tag like `2.4.4-atomnova.1` does **not** satisfy that range, so npm nests an unpatched copy under `text-buffer/node_modules/superstring` and the build fails again.
+`text-buffer` depends on `superstring@^2.4.4`; a tag like `2.4.4-chevron.1` does **not** satisfy that range, so npm nests an unpatched copy under `text-buffer/node_modules/superstring` and the build fails again.
 
 Root `package.json` and `package-lock.json` must resolve superstring to `file:packages/superstring`.

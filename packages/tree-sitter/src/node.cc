@@ -29,7 +29,9 @@ static inline void setup_transfer_buffer(uint32_t node_count) {
     // it allocate and point the native pointer at its storage — no malloc/free.
     transfer_buffer_length = new_length;
     auto js_transfer_buffer = ArrayBuffer::New(Isolate::GetCurrent(), transfer_buffer_length * sizeof(uint32_t));
-    transfer_buffer = static_cast<uint32_t *>(js_transfer_buffer->GetBackingStore()->Data());
+    // Use Data() not GetBackingStore(): Electron Windows node.lib uses Chromium
+    // libc++ (std::__Cr) and GetBackingStore fails to link under MSVC (LNK2001).
+    transfer_buffer = static_cast<uint32_t *>(js_transfer_buffer->Data());
     Nan::Set(
       Nan::New(module_exports),
       Nan::New("nodeTransferArray").ToLocalChecked(),

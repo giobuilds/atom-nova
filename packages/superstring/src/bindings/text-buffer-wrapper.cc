@@ -388,7 +388,10 @@ static Local<Value> encode_ranges(const vector<Range> &ranges) {
   auto buffer = v8::ArrayBuffer::New(v8::Isolate::GetCurrent(), length * sizeof(uint32_t));
   auto result = v8::Uint32Array::New(buffer, 0, length);
   // Electron 14+ / modern V8: ArrayBuffer::GetContents was removed.
-  auto data = buffer->GetBackingStore()->Data();
+  // Prefer Data() over GetBackingStore()->Data(): Electron Windows node.lib is
+  // built with Chromium libc++ (std::__Cr), so GetBackingStore's
+  // std::shared_ptr return type does not link against MSVC STL (LNK2001).
+  auto data = buffer->Data();
   memcpy(data, ranges.data(), length * sizeof(uint32_t));
   return result;
 }
@@ -613,7 +616,8 @@ void TextBufferWrapper::find_words_with_subsequence_in_range(const Nan::Function
 
       auto positions_buffer = v8::ArrayBuffer::New(v8::Isolate::GetCurrent(), positions_buffer_size);
       // Electron 14+ / modern V8: ArrayBuffer::GetContents was removed.
-      uint32_t *positions_data = reinterpret_cast<uint32_t *>(positions_buffer->GetBackingStore()->Data());
+      // Use Data() (not GetBackingStore) for MSVC/Electron Windows link ABI.
+      uint32_t *positions_data = reinterpret_cast<uint32_t *>(positions_buffer->Data());
 
       uint32_t positions_array_index = 0;
       for (size_t i = 0; i < result.size() && i < max_count; i++) {

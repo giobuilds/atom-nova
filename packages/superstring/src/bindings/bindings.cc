@@ -10,7 +10,8 @@
 
 using namespace v8;
 
-void Init(Local<Object> exports) {
+void Init(Local<Object> exports)
+{
   PointWrapper::init();
   RangeWrapper::init();
   PatchWrapper::init(exports);
@@ -21,11 +22,12 @@ void Init(Local<Object> exports) {
   TextBufferSnapshotWrapper::init();
 }
 
-static void superstring_atomnova_register(
+static void superstring_chevron_register(
     v8::Local<v8::Object> exports,
     v8::Local<v8::Value> module,
     v8::Local<v8::Context> context,
-    void* priv) {
+    void *priv)
+{
   Init(exports);
 }
-NODE_MODULE_CONTEXT_AWARE(superstring, superstring_atomnova_register)
+NODE_MODULE_CONTEXT_AWARE(superstring, superstring_chevron_register)

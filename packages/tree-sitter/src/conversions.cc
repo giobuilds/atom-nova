@@ -29,8 +29,10 @@ void InitConversions(Local<Object> exports) {
 
   // Electron 21+ V8 sandbox: backing stores must live inside the sandbox, so
   // let V8 allocate the buffer and point the native pointer at its storage.
+  // Use Data() not GetBackingStore(): Electron Windows node.lib uses Chromium
+  // libc++ (std::__Cr) and GetBackingStore fails to link under MSVC (LNK2001).
   auto js_point_transfer_buffer = ArrayBuffer::New(Isolate::GetCurrent(), 2 * sizeof(uint32_t));
-  point_transfer_buffer = static_cast<uint32_t *>(js_point_transfer_buffer->GetBackingStore()->Data());
+  point_transfer_buffer = static_cast<uint32_t *>(js_point_transfer_buffer->Data());
   Nan::Set(exports, Nan::New("pointTransferArray").ToLocalChecked(), Uint32Array::New(js_point_transfer_buffer, 0, 2));
 }
 
