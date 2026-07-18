@@ -46,7 +46,7 @@ module.exports = function() {
       'resources',
       'app-icons',
       CONFIG.channel,
-      'atom'
+      'chevron'
     ),
     name: appName,
     // electron-packager appends .exe on Windows; CONFIG.executableName already
@@ -136,8 +136,9 @@ function copyNonASARResources(packagedAppPath, bundledResourcesPath) {
       'png',
       '1024.png'
     );
-    // Keep both names: packaging scripts and desktop entries use channelName.
+    // Channel desktop name + legacy atom.png for any leftover packaging paths.
     fs.copySync(iconSrc, path.join(packagedAppPath, 'atom.png'));
+    fs.copySync(iconSrc, path.join(packagedAppPath, 'chevron.png'));
     fs.copySync(
       iconSrc,
       path.join(packagedAppPath, `${CONFIG.channelName}.png`)

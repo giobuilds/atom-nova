@@ -19,7 +19,7 @@ module.exports = packagedAppPath => {
     authors: 'Chevron contributors',
     iconUrl: `https://raw.githubusercontent.com/builtbygio/chevron/master/resources/app-icons/${
       CONFIG.channel
-    }/atom.ico`,
+    }/chevron.ico`,
     loadingGif: path.join(
       CONFIG.repositoryRootPath,
       'resources',
@@ -37,7 +37,7 @@ module.exports = packagedAppPath => {
       'resources',
       'app-icons',
       CONFIG.channel,
-      'atom.ico'
+      'chevron.ico'
     )
   };
 

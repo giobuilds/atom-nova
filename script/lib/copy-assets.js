@@ -60,16 +60,21 @@ module.exports = function() {
     path.join(CONFIG.intermediateAppPath, 'node_modules')
   );
 
+  const iconPng = path.join(
+    CONFIG.repositoryRootPath,
+    'resources',
+    'app-icons',
+    CONFIG.channel,
+    'png',
+    '1024.png'
+  );
   fs.copySync(
-    path.join(
-      CONFIG.repositoryRootPath,
-      'resources',
-      'app-icons',
-      CONFIG.channel,
-      'png',
-      '1024.png'
-    ),
+    iconPng,
     path.join(CONFIG.intermediateAppPath, 'resources', 'atom.png')
+  );
+  fs.copySync(
+    iconPng,
+    path.join(CONFIG.intermediateAppPath, 'resources', 'chevron.png')
   );
 };
 
