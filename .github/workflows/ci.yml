@@ -368,21 +368,25 @@ jobs:
 
       - name: Bootstrap
         run: |
-          export GIT_EXEC_PATH="${GIT_EXEC_PATH:-/c/Program Files/Git/mingw64/libexec/git-core}"
-          export PATH="$GIT_EXEC_PATH:$PATH"
+          # Windows-style path: apm.cmd spawns git via cmd.exe, not Git Bash.
+          export GIT_EXEC_PATH="C:/Program Files/Git/mingw64/libexec/git-core"
+          export PATH="/c/Program Files/Git/mingw64/libexec/git-core:/c/Program Files/Git/cmd:$PATH"
           ./script/bootstrap-modern --ci
         env:
           PYTHONIOENCODING: utf-8
-          PYTHONUTF8: '1'
+          PYTHONUTF8: "1"
+          GIT_EXEC_PATH: "C:/Program Files/Git/mingw64/libexec/git-core"
 
       - name: Build + package (zip)
         run: |
-          export GIT_EXEC_PATH="${GIT_EXEC_PATH:-/c/Program Files/Git/mingw64/libexec/git-core}"
-          export PATH="$GIT_EXEC_PATH:$PATH"
+          export GIT_EXEC_PATH="C:/Program Files/Git/mingw64/libexec/git-core"
+          export PATH="/c/Program Files/Git/mingw64/libexec/git-core:/c/Program Files/Git/cmd:$PATH"
           ./script/with-modern-env ./script/build --no-bootstrap --compress-artifacts
         env:
           PYTHONIOENCODING: utf-8
-          PYTHONUTF8: '1'
+          PYTHONUTF8: "1"
+          GIT_EXEC_PATH: "C:/Program Files/Git/mingw64/libexec/git-core"
+
       - name: Launch smoke test
         run: node script/ci/smoke-test.js
 
