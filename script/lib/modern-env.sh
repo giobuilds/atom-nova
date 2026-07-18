@@ -152,6 +152,9 @@ export PATH="${HOME:-$USERPROFILE}/.local/bin:/usr/local/opt/python@3.12/libexec
 export PYTHON="$_python"
 export npm_config_python="$_python"
 export NODE_GYP_FORCE_PYTHON="$_python"
+# Avoid cp1252 UnicodeEncodeError on Windows console for bootstrap prints.
+export PYTHONIOENCODING="${PYTHONIOENCODING:-utf-8}"
+export PYTHONUTF8="${PYTHONUTF8:-1}"
 
 # Windows: node-gyp / MSVC — prefer VS 2022 Build Tools when present.
 # (GitHub windows-latest images already include them; this helps local builds.)
@@ -244,7 +247,7 @@ for path in root.rglob("input.py"):
     if new != text:
         path.write_text(new, encoding="utf-8")
         patched += 1
-        print(f"patched node-gyp rU→r: {path}")
+        print(f"patched node-gyp rU->r: {path}")
     # Drop cached bytecode that may still contain 'rU'
     pycache = path.parent / "__pycache__"
     if pycache.is_dir():
@@ -265,7 +268,7 @@ _atomnova_modern_env_loaded=1
 echo "AtomNova modern env:"
 echo "  Node:    $(node -v) ($(command -v node))"
 echo "  Python:  $($PYTHON --version 2>&1) ($PYTHON)"
-echo "  python:  $(command -v python) → $(python --version 2>&1)"
+echo "  python:  $(command -v python) -> $(python --version 2>&1)"
 echo "  CXXFLAGS: ${CXXFLAGS:-}"
 echo "  ATOM_ELECTRON_URL: ${ATOM_ELECTRON_URL:-}"
 echo "  ATOM_RESOURCE_PATH: ${ATOM_RESOURCE_PATH:-}"

@@ -65,7 +65,7 @@ console.log('Script dependencies installed.');
 NODE
 
 # Patch gyp that just landed under script/node_modules
-echo "Patching node-gyp (script) for Python 3.11+ (rU→r)…"
+echo "Patching node-gyp (script) for Python 3.11+ (rU->r)..."
 atomnova_patch_node_gyp "$REPO_ROOT/script"
 
 # --- Step 2: install apm under host Node; run Node-12-native postinstall -----
@@ -96,7 +96,7 @@ ONIG="$APM_PKG/node_modules/oniguruma"
 MODERN_GYP="$REPO_ROOT/script/node_modules/.bin/node-gyp"
 
 # Nested gyp under apm (used by postinstall rebuild with bundled Node)
-echo "Patching node-gyp (apm) for Python 3.11+ (rU→r)…"
+echo "Patching node-gyp (apm) for Python 3.11+ (rU->r)..."
 atomnova_patch_node_gyp "$REPO_ROOT/apm"
 
 # npm 6 devDependencies-without-dependencies crash (npm/npm#19877)
@@ -188,7 +188,7 @@ echo "Replacing outdated nested nan copies with root nan…"
 node "$SCRIPT_DIR/lib/patch-nested-nan.js" "$REPO_ROOT"
 
 # Bundled packages that still use remote for app paths / protocol client
-echo "Patching bundled packages for remote→IPC…"
+echo "Patching bundled packages for remote->IPC..."
 node "$SCRIPT_DIR/lib/patch-packages-remote-ipc.js" "$REPO_ROOT"
 
 # tree-view: modern fs.Stats own-keys are *Ms only; unguarded .getTime() throws

@@ -35,7 +35,7 @@ if (alreadyRemotePatched) {
   const next = patchSendTo(text);
   if (next !== text) {
     fs.writeFileSync(workerPath, next);
-    console.log('patched (sendTo→atom-wc-send): node_modules/github/lib/worker.js');
+    console.log('patched (sendTo->atom-wc-send): node_modules/github/lib/worker.js');
   } else {
     console.log('ok (already): node_modules/github/lib/worker.js');
   }

@@ -69,4 +69,4 @@ text = text.replace(
 );
 
 fs.writeFileSync(downloadNodePath, text);
-console.log('patch-apm-download-node: patched for darwin-arm64 → x64 Node 12');
+console.log('patch-apm-download-node: patched for darwin-arm64 -> x64 Node 12');

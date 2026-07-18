@@ -56,7 +56,7 @@ atomnova_resync_nested_built_natives() {
       if [[ "$npm_name" == @atom/* ]]; then
         [ "$(basename "$(dirname "$nested")")" = "@atom" ] || continue
       fi
-      echo "Re-sync nested $npm_name (with .node) → $nested"
+      echo "Re-sync nested $npm_name (with .node) -> $nested"
       rm -rf "$nested"
       mkdir -p "$(dirname "$nested")"
       if command -v rsync >/dev/null 2>&1; then
@@ -85,7 +85,7 @@ atomnova_force_one_native() {
 
   mkdir -p "$(dirname "$root_dest")"
   rm -rf "$root_dest"
-  echo "Installing patched $package_name → node_modules/$npm_name"
+  echo "Installing patched $package_name -> node_modules/$npm_name"
   mkdir -p "$root_dest"
   # Prefer a real directory copy (not a symlink) so electron-packager with
   # derefSymlinks:false still ships the package into the asar tree.
@@ -134,7 +134,7 @@ atomnova_force_one_native() {
   local link_target
   for link_target in "${to_link[@]+"${to_link[@]}"}"; do
     [ -n "$link_target" ] || continue
-    echo "Copying nested $package_name → $link_target"
+    echo "Copying nested $package_name -> $link_target"
     rm -rf "$link_target"
     mkdir -p "$(dirname "$link_target")"
     if command -v rsync >/dev/null 2>&1; then
@@ -175,7 +175,7 @@ atomnova_upgrade_nan_for_electron14() {
       " "$ver" 2>/dev/null || echo 0)"
     fi
     if [ "$needs_upgrade" = "1" ]; then
-      echo "Upgrading nan ${ver:-unknown} → 2.17.0 at $nan_dir"
+      echo "Upgrading nan ${ver:-unknown} -> 2.17.0 at $nan_dir"
       rm -rf "$nan_dir"
       mkdir -p "$(dirname "$nan_dir")"
       cp -R "$nan_src" "$nan_dir"
