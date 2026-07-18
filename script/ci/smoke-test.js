@@ -266,11 +266,24 @@ async function probeWindow() {
         if (rendererLogs.length > 80) rendererLogs.shift();
       }
     });
-    const call = (method, params = {}) =>
+    const call = (method, params = {}, timeoutMs = 8000) =>
       new Promise(resolve => {
         const id = ++messageId;
-        pending.set(id, resolve);
-        ws.send(JSON.stringify({ id, method, params }));
+        const timer = setTimeout(() => {
+          pending.delete(id);
+          resolve(null);
+        }, timeoutMs);
+        pending.set(id, result => {
+          clearTimeout(timer);
+          resolve(result);
+        });
+        try {
+          ws.send(JSON.stringify({ id, method, params }));
+        } catch (error) {
+          clearTimeout(timer);
+          pending.delete(id);
+          resolve(null);
+        }
       });
 
     // Runtime.enable emits executionContextCreated for *existing* contexts too.
