@@ -268,14 +268,26 @@ fi
 
 # dugite's postinstall downloads an embedded git; apm install used --ignore-scripts
 # so this may still be missing (breaks github package + can stress the renderer).
+# dugite only ships win/mac/linux-x64 embeds — not linux-arm64.
 DUGITE_GIT="$REPO_ROOT/node_modules/dugite/git/bin/git"
 if [ ! -x "$DUGITE_GIT" ]; then
   echo "Downloading dugite embedded git…"
   (cd "$REPO_ROOT/node_modules/dugite" && node ./script/download-git.js) || \
-    echo "WARNING: dugite git download failed — git integration may not work."
+    echo "WARNING: dugite git download failed — will try system git fallback."
 fi
-if [ -x "$DUGITE_GIT" ]; then
-  echo "dugite git present: $DUGITE_GIT"
+if [ ! -x "$DUGITE_GIT" ] && command -v git >/dev/null 2>&1; then
+  echo "Stubbing dugite git layout with system git ($(uname -m))…"
+  mkdir -p "$REPO_ROOT/node_modules/dugite/git/bin"
+  mkdir -p "$REPO_ROOT/node_modules/dugite/git/libexec"
+  ln -sfn "$(command -v git)" "$DUGITE_GIT"
+  if [ -d /usr/lib/git-core ]; then
+    ln -sfn /usr/lib/git-core "$REPO_ROOT/node_modules/dugite/git/libexec/git-core"
+  elif [ -d /usr/libexec/git-core ]; then
+    ln -sfn /usr/libexec/git-core "$REPO_ROOT/node_modules/dugite/git/libexec/git-core"
+  fi
+fi
+if [ -x "$DUGITE_GIT" ] || [ -L "$DUGITE_GIT" ]; then
+  echo "dugite git present: $DUGITE_GIT -> $(readlink -f "$DUGITE_GIT" 2>/dev/null || echo ok)"
 else
   echo "WARNING: dugite git still missing at $DUGITE_GIT"
 fi
