@@ -205,11 +205,18 @@ function isPageTarget(target) {
   );
 }
 
+// Accumulated renderer console / exception noise for timeout diagnostics.
+const rendererLogs = [];
+
 async function probeWindow() {
   const targets = await jsonList();
+  // Prefer the app window; skip DevTools UI pages that open on setup errors.
   const page =
-    targets.find(isPageTarget) ||
-    targets.find(target => target.type === 'page');
+    targets.find(
+      target =>
+        isPageTarget(target) && !/^devtools:/i.test(target.url || '')
+    ) ||
+    targets.find(target => target.type === 'page' && !/^devtools:/i.test(target.url || ''));
   if (!page) {
     return {
       status: 'pending',
@@ -230,13 +237,38 @@ async function probeWindow() {
     let messageId = 0;
     const pending = new Map();
     const contexts = [];
+    const contextMeta = [];
     ws.on('message', raw => {
       const message = JSON.parse(raw);
       if (message.id && pending.has(message.id)) {
         pending.get(message.id)(message.result);
         pending.delete(message.id);
       } else if (message.method === 'Runtime.executionContextCreated') {
-        contexts.push(message.params.context.id);
+        const ctx = message.params.context;
+        contexts.push(ctx.id);
+        contextMeta.push({
+          id: ctx.id,
+          name: ctx.name,
+          origin: ctx.origin,
+          auxData: ctx.auxData
+        });
+      } else if (message.method === 'Runtime.consoleAPICalled') {
+        const args = (message.params.args || [])
+          .map(a => a.value || a.description || a.type)
+          .join(' ');
+        const line = `[console.${message.params.type}] ${args}`;
+        rendererLogs.push(line);
+        if (rendererLogs.length > 80) rendererLogs.shift();
+      } else if (message.method === 'Runtime.exceptionThrown') {
+        const desc =
+          (message.params.exceptionDetails &&
+            message.params.exceptionDetails.exception &&
+            message.params.exceptionDetails.exception.description) ||
+          (message.params.exceptionDetails &&
+            message.params.exceptionDetails.text) ||
+          'unknown exception';
+        rendererLogs.push(`[exception] ${desc}`);
+        if (rendererLogs.length > 80) rendererLogs.shift();
       }
     });
     const call = (method, params = {}) =>
@@ -250,11 +282,23 @@ async function probeWindow() {
     await call('Runtime.enable');
     await delay(400);
 
+    // Snapshot each context: Node world vs empty page world.
+    const DIAG_EXPR = `(function(){
+      return JSON.stringify({
+        hasAtom: typeof atom !== 'undefined',
+        hasRequire: typeof require !== 'undefined',
+        hasProcess: typeof process !== 'undefined',
+        processType: typeof process !== 'undefined' ? process.type : null,
+        title: typeof document !== 'undefined' ? document.title : null
+      });
+    })()`;
+
     // Evaluate every execution context. Main world has no `atom` under
     // contextIsolation — only the preload isolated world does. Must not
     // return early on the first `no-atom` from the main world.
     const contextIds = contexts.length > 0 ? contexts : [undefined];
     let best = null;
+    const diags = [];
     const rank = status => {
       switch (status) {
         case 'ready':
@@ -270,12 +314,27 @@ async function probeWindow() {
       }
     };
     for (const contextId of contextIds) {
-      const params = {
-        expression: PROBE_EXPR,
-        returnByValue: true
-      };
-      if (contextId !== undefined) params.contextId = contextId;
-      const result = await call('Runtime.evaluate', params);
+      const baseParams = { returnByValue: true };
+      if (contextId !== undefined) baseParams.contextId = contextId;
+
+      const diagResult = await call(
+        'Runtime.evaluate',
+        Object.assign({ expression: DIAG_EXPR }, baseParams)
+      );
+      const diagVal =
+        diagResult && diagResult.result && diagResult.result.value;
+      if (diagVal) {
+        try {
+          diags.push(Object.assign({ contextId }, JSON.parse(diagVal)));
+        } catch (error) {
+          /* ignore */
+        }
+      }
+
+      const result = await call(
+        'Runtime.evaluate',
+        Object.assign({ expression: PROBE_EXPR }, baseParams)
+      );
       const value = result && result.result && result.result.value;
       if (!value) continue;
       let parsed;
@@ -286,6 +345,8 @@ async function probeWindow() {
       }
       parsed.pageUrl = page.url;
       parsed.contextCount = contexts.length;
+      parsed.contextMeta = contextMeta;
+      parsed.contextDiags = diags;
       if (!best || rank(parsed.status) > rank(best.status)) {
         best = parsed;
       }
@@ -296,7 +357,9 @@ async function probeWindow() {
         status: 'pending',
         reason: 'no-atom-in-contexts',
         pageUrl: page.url,
-        contextCount: contexts.length
+        contextCount: contexts.length,
+        contextMeta,
+        contextDiags: diags
       }
     );
   } finally {
@@ -324,12 +387,9 @@ function linuxLaunchFlags(binaryPath) {
   // Electron 28+ ozone: force X11 so Xvfb DISPLAY is used (not Wayland).
   flags.push('--ozone-platform=x11');
   // Headless CI: avoid GPU/WebGL blocklist stalls under Xvfb.
-  flags.push(
-    '--disable-gpu',
-    '--disable-gpu-compositing',
-    '--disable-dev-shm-usage',
-    '--disable-software-rasterizer'
-  );
+  // Do not combine --disable-gpu with --disable-software-rasterizer (no
+  // remaining raster path; can hang compositing under Xvfb).
+  flags.push('--disable-gpu', '--disable-dev-shm-usage');
   if (linuxNeedsNoSandbox(binaryPath)) {
     flags.push('--no-sandbox', '--disable-setuid-sandbox');
   }
@@ -371,7 +431,8 @@ async function main() {
       // Prefer software GL if any GPU path still runs under Xvfb.
       LIBGL_ALWAYS_SOFTWARE: process.env.LIBGL_ALWAYS_SOFTWARE || '1',
       ELECTRON_OZONE_PLATFORM_HINT:
-        process.env.ELECTRON_OZONE_PLATFORM_HINT || 'x11'
+        process.env.ELECTRON_OZONE_PLATFORM_HINT || 'x11',
+      ELECTRON_ENABLE_LOGGING: '1'
     }),
     stdio: ['ignore', 'pipe', 'pipe']
   });
@@ -416,6 +477,19 @@ async function main() {
     if (!state || state.status !== 'ready') {
       console.error('smoke-test: TIMEOUT waiting for workspace');
       console.error('smoke-test: last probe', JSON.stringify(state, null, 2));
+      if (rendererLogs.length > 0) {
+        console.error('smoke-test: renderer console/exceptions:');
+        for (const line of rendererLogs) console.error('  ', line);
+      } else {
+        console.error('smoke-test: (no renderer console lines captured)');
+      }
+      const setupErrorLog = path.join(atomHome, 'setup-error.log');
+      if (fs.existsSync(setupErrorLog)) {
+        console.error('smoke-test: setup-error.log:');
+        console.error(fs.readFileSync(setupErrorLog, 'utf8'));
+      } else {
+        console.error('smoke-test: no setup-error.log in ATOM_HOME');
+      }
       try {
         const targets = await jsonList();
         console.error(
@@ -429,7 +503,7 @@ async function main() {
       } catch (error) {
         console.error('smoke-test: could not list CDP targets:', error.message);
       }
-      console.error(appOutput.slice(-6000));
+      console.error(appOutput.slice(-8000));
       process.exit(2);
     }
 

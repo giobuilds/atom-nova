@@ -131,6 +131,19 @@
   }
 
   function handleSetupError(error) {
+    // Persist for CI smoke diagnostics (renderer console is not always on stderr).
+    try {
+      const fs = require('fs');
+      const atomHome = process.env.ATOM_HOME;
+      if (atomHome) {
+        fs.writeFileSync(
+          path.join(atomHome, 'setup-error.log'),
+          String((error && error.stack) || error)
+        );
+      }
+    } catch (writeError) {
+      /* ignore */
+    }
     const currentWindow = rendererIpc.getWindowProxy();
     currentWindow.setSize(800, 600);
     currentWindow.center();
