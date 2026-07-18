@@ -208,7 +208,7 @@ function isAppWindowTarget(target) {
 // Accumulated renderer console / exception noise for timeout diagnostics.
 const rendererLogs = [];
 
-async function probeWindow() {
+async function probeWindow(probePaths) {
   const targets = await jsonList();
   // Prefer the main editor window only (never github worker / DevTools).
   const page = targets.find(isAppWindowTarget);
@@ -288,23 +288,49 @@ async function probeWindow() {
 
     // Runtime.enable emits executionContextCreated for *existing* contexts too.
     await call('Runtime.enable');
-    await delay(400);
+    await delay(600);
 
-    // Snapshot each context: Node world vs empty page world.
-    const DIAG_EXPR = `(function(){
-      return JSON.stringify({
-        hasAtom: typeof atom !== 'undefined',
-        hasRequire: typeof require !== 'undefined',
-        hasProcess: typeof process !== 'undefined',
-        processType: typeof process !== 'undefined' ? process.type : null,
-        title: typeof document !== 'undefined' ? document.title : null
-      });
-    })()`;
+    // Prefer the Electron Isolated Context (preload / atom world).
+    const isolatedIds = contextMeta
+      .filter(c => c.name === 'Electron Isolated Context')
+      .map(c => c.id);
+    const contextIds =
+      isolatedIds.length > 0
+        ? isolatedIds
+        : contexts.length > 0
+        ? contexts
+        : [undefined];
 
-    // Evaluate every execution context. Main world has no `atom` under
-    // contextIsolation — only the preload isolated world does. Must not
-    // return early on the first `no-atom` from the main world.
-    const contextIds = contexts.length > 0 ? contexts : [undefined];
+    // If packages are up but CLI paths did not open editors (common under
+    // Xvfb + welcome guide), open probes explicitly via the workspace API.
+    if (probePaths && probePaths.length) {
+      const openExpr = `(async function() {
+        if (typeof atom === 'undefined' || !atom.workspace) return 'no-atom';
+        const want = ${JSON.stringify(probePaths)};
+        for (const p of want) {
+          const open = atom.workspace.getTextEditors().some(
+            e => (e.getPath() || '') === p
+          );
+          if (!open) {
+            await atom.workspace.open(p, { activateItem: false, pending: false });
+          }
+        }
+        return 'ok';
+      })()`;
+      for (const contextId of contextIds) {
+        const params = {
+          expression: openExpr,
+          returnByValue: true,
+          awaitPromise: true
+        };
+        if (contextId !== undefined) params.contextId = contextId;
+        await call('Runtime.evaluate', params, 20000);
+      }
+      await delay(500);
+    }
+
+    // Evaluate every candidate context. Main world has no `atom` under
+    // contextIsolation — only the preload isolated world does.
     let best = null;
     const diags = [];
     const rank = status => {
@@ -325,20 +351,6 @@ async function probeWindow() {
       const baseParams = { returnByValue: true };
       if (contextId !== undefined) baseParams.contextId = contextId;
 
-      const diagResult = await call(
-        'Runtime.evaluate',
-        Object.assign({ expression: DIAG_EXPR }, baseParams)
-      );
-      const diagVal =
-        diagResult && diagResult.result && diagResult.result.value;
-      if (diagVal) {
-        try {
-          diags.push(Object.assign({ contextId }, JSON.parse(diagVal)));
-        } catch (error) {
-          /* ignore */
-        }
-      }
-
       const result = await call(
         'Runtime.evaluate',
         Object.assign({ expression: PROBE_EXPR }, baseParams)
@@ -354,7 +366,6 @@ async function probeWindow() {
       parsed.pageUrl = page.url;
       parsed.contextCount = contexts.length;
       parsed.contextMeta = contextMeta;
-      parsed.contextDiags = diags;
       if (!best || rank(parsed.status) > rank(best.status)) {
         best = parsed;
       }
@@ -469,7 +480,7 @@ async function main() {
         process.exit(1);
       }
       try {
-        state = await probeWindow();
+        state = await probeWindow([probes.txt, probes.ts, probes.css]);
       } catch (error) {
         state = { status: 'pending', reason: String(error.message || error) };
       }

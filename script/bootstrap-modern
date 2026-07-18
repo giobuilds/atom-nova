@@ -266,6 +266,20 @@ else
   echo "WARNING: keytar.node still missing — github package password storage will fail."
 fi
 
+# dugite's postinstall downloads an embedded git; apm install used --ignore-scripts
+# so this may still be missing (breaks github package + can stress the renderer).
+DUGITE_GIT="$REPO_ROOT/node_modules/dugite/git/bin/git"
+if [ ! -x "$DUGITE_GIT" ]; then
+  echo "Downloading dugite embedded git…"
+  (cd "$REPO_ROOT/node_modules/dugite" && node ./script/download-git.js) || \
+    echo "WARNING: dugite git download failed — git integration may not work."
+fi
+if [ -x "$DUGITE_GIT" ]; then
+  echo "dugite git present: $DUGITE_GIT"
+else
+  echo "WARNING: dugite git still missing at $DUGITE_GIT"
+fi
+
 # Critical: nested package copies (e.g. text-buffer/node_modules/superstring)
 # were made *before* Electron rebuild and lack build/Release/*.node. Without
 # this resync, packaged Linux boots die with "Cannot find module superstring.node".
