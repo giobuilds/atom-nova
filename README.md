@@ -41,11 +41,25 @@ Chevron is a solo learning project, developed in the open as part of a broader p
 
 Built using a branch → PR → merge workflow, even solo. Each PR is scoped to a phase of the migration (e.g. "Remove remote module from menu package," "Rearchitect settings-view IPC") so the PR history doubles as a changelog of the migration's progress.
 
+**Host toolchain:** Node **24** + Python **3.12** (+ `setuptools`). Always use `./script/bootstrap-modern` (not stock `./script/bootstrap`).
+
 ```bash
 git clone https://github.com/builtbygio/chevron.git
 cd chevron
-# build instructions TBD as the Electron migration stabilizes
+
+./script/bootstrap-modern
+./script/with-modern-env ./script/build --no-bootstrap
+
+# macOS: opens out/Chevron.app
+# Linux: also package with --create-debian-package --compress-artifacts
+# Headless Linux smoke: xvfb-run -a node script/ci/smoke-test.js
 ```
+
+Platform guides:
+
+- [Linux](docs/build-instructions/linux.md) — deps, `.deb` / tarball, CI jobs
+- [macOS](docs/build-instructions/macOS.md)
+- [Windows](docs/build-instructions/windows.md)
 
 ## License
 

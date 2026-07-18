@@ -58,8 +58,17 @@ module.exports = {
   snapshotAuxiliaryData: {}
 };
 
+function getProductBaseName() {
+  return (
+    appMetadata.productName ||
+    appMetadata.name ||
+    'Chevron'
+  );
+}
+
 function getChannelName(channel) {
-  return channel === 'stable' ? 'atom' : `atom-${channel}`;
+  // Linux package / desktop file id (chevron, chevron-beta, …)
+  return channel === 'stable' ? 'chevron' : `chevron-${channel}`;
 }
 
 function getChannel(version) {
@@ -74,9 +83,10 @@ function getChannel(version) {
 }
 
 function getAppName(channel) {
+  const product = getProductBaseName();
   return channel === 'stable'
-    ? 'Atom'
-    : `Atom ${process.env.ATOM_CHANNEL_DISPLAY_NAME ||
+    ? product
+    : `${product} ${process.env.ATOM_CHANNEL_DISPLAY_NAME ||
         channel.charAt(0).toUpperCase() + channel.slice(1)}`;
 }
 
@@ -84,9 +94,10 @@ function getExecutableName(channel, appName) {
   if (process.platform === 'darwin') {
     return appName;
   } else if (process.platform === 'win32') {
-    return channel === 'stable' ? 'atom.exe' : `atom-${channel}.exe`;
+    return channel === 'stable' ? 'chevron.exe' : `chevron-${channel}.exe`;
   } else {
-    return 'atom';
+    // Linux binary name inside the electron-packager output dir
+    return channel === 'stable' ? 'chevron' : `chevron-${channel}`;
   }
 }
 

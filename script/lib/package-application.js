@@ -47,6 +47,7 @@ module.exports = function() {
       'atom'
     ),
     name: appName,
+    executableName: CONFIG.executableName,
     out: CONFIG.buildOutputPath,
     overwrite: true,
     platform: process.platform,
@@ -119,16 +120,19 @@ function copyNonASARResources(packagedAppPath, bundledResourcesPath) {
       path.join(bundledResourcesPath, 'file.icns')
     );
   } else if (process.platform === 'linux') {
+    const iconSrc = path.join(
+      CONFIG.repositoryRootPath,
+      'resources',
+      'app-icons',
+      CONFIG.channel,
+      'png',
+      '1024.png'
+    );
+    // Keep both names: packaging scripts and desktop entries use channelName.
+    fs.copySync(iconSrc, path.join(packagedAppPath, 'atom.png'));
     fs.copySync(
-      path.join(
-        CONFIG.repositoryRootPath,
-        'resources',
-        'app-icons',
-        CONFIG.channel,
-        'png',
-        '1024.png'
-      ),
-      path.join(packagedAppPath, 'atom.png')
+      iconSrc,
+      path.join(packagedAppPath, `${CONFIG.channelName}.png`)
     );
   } else if (process.platform === 'win32') {
     [
@@ -233,7 +237,9 @@ function getAppName() {
   } else if (process.platform === 'win32') {
     return CONFIG.channel === 'stable' ? 'atom' : `atom-${CONFIG.channel}`;
   } else {
-    return 'atom';
+    // Linux: electron-packager dir is <name>-linux-<arch> (e.g. Chevron-linux-x64).
+    // Spaces in product names become awkward paths; normalize for non-stable channels.
+    return CONFIG.appName.replace(/\s+/g, '-');
   }
 }
 
@@ -259,22 +265,9 @@ function renamePackagedAppDir(packageOutputDirPath) {
       packagedAppPath
     );
   } else if (process.platform === 'linux') {
-    const appName =
-      CONFIG.channel !== 'stable' ? `atom-${CONFIG.channel}` : 'atom';
-    let architecture;
-    if (HOST_ARCH === 'ia32') {
-      architecture = 'i386';
-    } else if (HOST_ARCH === 'x64') {
-      architecture = 'amd64';
-    } else {
-      architecture = HOST_ARCH;
-    }
-    packagedAppPath = path.join(
-      CONFIG.buildOutputPath,
-      `${appName}-${CONFIG.appMetadata.version}-${architecture}`
-    );
-    if (fs.existsSync(packagedAppPath)) fs.removeSync(packagedAppPath);
-    fs.renameSync(packageOutputDirPath, packagedAppPath);
+    // Keep electron-packager layout: <AppName>-linux-<arch> (matches smoke-test + docs).
+    // Binary inside is CONFIG.executableName (chevron / chevron-<channel>).
+    packagedAppPath = packageOutputDirPath;
   } else {
     packagedAppPath = path.join(CONFIG.buildOutputPath, CONFIG.appName);
     if (process.platform === 'win32' && HOST_ARCH !== 'ia32') {

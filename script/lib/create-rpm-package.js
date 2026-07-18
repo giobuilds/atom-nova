@@ -10,8 +10,7 @@ const CONFIG = require('../config');
 
 module.exports = function(packagedAppPath) {
   console.log(`Creating rpm package for "${packagedAppPath}"`);
-  const atomExecutableName =
-    CONFIG.channel === 'stable' ? 'atom' : `atom-${CONFIG.channel}`;
+  const atomExecutableName = CONFIG.channelName; // chevron / chevron-beta
   const apmExecutableName =
     CONFIG.channel === 'stable' ? 'apm' : `apm-${CONFIG.channel}`;
   const appName = CONFIG.appName;
@@ -19,7 +18,7 @@ module.exports = function(packagedAppPath) {
   // RPM versions can't have dashes or tildes in them.
   // (Ref.: https://twiki.cern.ch/twiki/bin/view/Main/RPMAndDebVersioning)
   const appVersion = CONFIG.appMetadata.version.replace(/-/g, '.');
-  const policyFileName = `atom-${CONFIG.channel}.policy`;
+  const policyFileName = `${atomExecutableName}.policy`;
 
   const rpmPackageDirPath = path.join(CONFIG.homeDirPath, 'rpmbuild');
   const rpmPackageBuildDirPath = path.join(rpmPackageDirPath, 'BUILD');
@@ -137,7 +136,7 @@ module.exports = function(packagedAppPath) {
     );
     const outputRpmPackageFilePath = path.join(
       CONFIG.buildOutputPath,
-      `atom.${generatedArch}.rpm`
+      `${atomExecutableName}.${generatedArch}.rpm`
     );
     console.log(
       `Copying "${generatedPackageFilePath}" into "${outputRpmPackageFilePath}"`

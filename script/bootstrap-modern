@@ -221,22 +221,26 @@ rebuild_package_modern() {
 if [ "$ELECTRON_MAJOR" -ge 20 ]; then
   echo "Electron $ELECTRON_VERSION: apm's node-gyp is too old; npm rebuild + modern gyp"
   (cd "$REPO_ROOT" && npm rebuild 2>&1) || {
-    echo "npm rebuild failed; trying per-package superstring rebuild…"
-    rebuild_package_modern "$REPO_ROOT/node_modules/superstring"
+    echo "npm rebuild failed; trying per-package native rebuilds…"
+    rebuild_package_modern "$REPO_ROOT/node_modules/superstring" || true
+    rebuild_package_modern "$REPO_ROOT/node_modules/tree-sitter" || true
+    rebuild_package_modern "$REPO_ROOT/node_modules/@atom/watcher" || true
   }
 elif "$REPO_ROOT/apm/node_modules/atom-package-manager/bin/apm" rebuild 2>/dev/null; then
   echo "apm rebuild finished."
 else
   echo "apm rebuild unavailable; npm rebuild with target=$ELECTRON_VERSION"
   (cd "$REPO_ROOT" && npm rebuild 2>&1) || {
-    echo "npm rebuild failed; trying per-package superstring rebuild…"
+    echo "npm rebuild failed; trying per-package native rebuilds…"
     APM_NODE="$REPO_ROOT/apm/node_modules/atom-package-manager/bin/node"
     APM_GYP="$REPO_ROOT/apm/node_modules/atom-package-manager/node_modules/npm/node_modules/node-gyp/bin/node-gyp.js"
-    (cd "$REPO_ROOT/node_modules/superstring" && \
-      "$APM_NODE" "$APM_GYP" rebuild \
-        --target="$ELECTRON_VERSION" \
-        --dist-url="$ATOM_ELECTRON_URL" \
-        --arch="$(node -p "process.arch")")
+    for _pkg in superstring tree-sitter '@atom/watcher'; do
+      (cd "$REPO_ROOT/node_modules/$_pkg" && \
+        "$APM_NODE" "$APM_GYP" rebuild \
+          --target="$ELECTRON_VERSION" \
+          --dist-url="$ATOM_ELECTRON_URL" \
+          --arch="$(node -p "process.arch")") || true
+    done
   }
 fi
 
@@ -260,6 +264,48 @@ if [ -f "$REPO_ROOT/node_modules/keytar/build/Release/keytar.node" ]; then
   echo "keytar.node present."
 else
   echo "WARNING: keytar.node still missing — github package password storage will fail."
+fi
+
+# dugite's postinstall downloads an embedded git; apm install used --ignore-scripts
+# so this may still be missing (breaks github package + can stress the renderer).
+# dugite only ships win/mac/linux-x64 embeds — not linux-arm64.
+DUGITE_GIT="$REPO_ROOT/node_modules/dugite/git/bin/git"
+if [ ! -x "$DUGITE_GIT" ]; then
+  echo "Downloading dugite embedded git…"
+  (cd "$REPO_ROOT/node_modules/dugite" && node ./script/download-git.js) || \
+    echo "WARNING: dugite git download failed — will try system git fallback."
+fi
+if [ ! -x "$DUGITE_GIT" ] && command -v git >/dev/null 2>&1; then
+  echo "Stubbing dugite git layout with system git ($(uname -m))…"
+  mkdir -p "$REPO_ROOT/node_modules/dugite/git/bin"
+  mkdir -p "$REPO_ROOT/node_modules/dugite/git/libexec"
+  ln -sfn "$(command -v git)" "$DUGITE_GIT"
+  if [ -d /usr/lib/git-core ]; then
+    ln -sfn /usr/lib/git-core "$REPO_ROOT/node_modules/dugite/git/libexec/git-core"
+  elif [ -d /usr/libexec/git-core ]; then
+    ln -sfn /usr/libexec/git-core "$REPO_ROOT/node_modules/dugite/git/libexec/git-core"
+  fi
+fi
+if [ -x "$DUGITE_GIT" ] || [ -L "$DUGITE_GIT" ]; then
+  echo "dugite git present: $DUGITE_GIT -> $(readlink -f "$DUGITE_GIT" 2>/dev/null || echo ok)"
+else
+  echo "WARNING: dugite git still missing at $DUGITE_GIT"
+fi
+
+# Critical: nested package copies (e.g. text-buffer/node_modules/superstring)
+# were made *before* Electron rebuild and lack build/Release/*.node. Without
+# this resync, packaged Linux boots die with "Cannot find module superstring.node".
+echo "Re-syncing nested natives from rebuilt root packages…"
+atomnova_resync_nested_built_natives "$REPO_ROOT"
+
+if [ ! -f "$REPO_ROOT/node_modules/superstring/build/Release/superstring.node" ]; then
+  echo "error: superstring.node missing after rebuild" >&2
+  exit 1
+fi
+if [ ! -f "$REPO_ROOT/node_modules/text-buffer/node_modules/superstring/build/Release/superstring.node" ] \
+  && [ -d "$REPO_ROOT/node_modules/text-buffer/node_modules/superstring" ]; then
+  echo "error: nested text-buffer superstring.node missing after resync" >&2
+  exit 1
 fi
 
 # --- Step 5: fingerprint -----------------------------------------------------
