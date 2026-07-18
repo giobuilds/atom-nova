@@ -339,6 +339,12 @@ jobs:
       - name: Install setuptools (distutils for node-gyp)
         run: python -m pip install --upgrade pip setuptools
 
+      # Put cl.exe / link.exe on PATH so node-gyp (including old v5) can compile.
+      - name: Setup MSVC developer command prompt
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
       - name: Rewrite git ssh URLs to https
         run: |
           git config --global url."https://github.com/".insteadOf "ssh://git@github.com/"
@@ -361,7 +367,8 @@ jobs:
       - name: Bootstrap
         run: ./script/bootstrap-modern --ci
         env:
-          # Help node-gyp find VS Build Tools on windows-latest
+          # VS "18" (2026) is on windows-latest; modern node-gyp finds it via PATH.
+          # Keep a soft preference for 2022 when present.
           npm_config_msvs_version: '2022'
           GYP_MSVS_VERSION: '2022'
 
@@ -371,7 +378,6 @@ jobs:
         env:
           npm_config_msvs_version: '2022'
           GYP_MSVS_VERSION: '2022'
-
       - name: Launch smoke test
         run: node script/ci/smoke-test.js
 

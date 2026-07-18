@@ -114,36 +114,69 @@ if [ -d "$APM_PKG" ]; then
     echo "Downloading apm bundled Node 12…"
     (cd "$APM_PKG" && node script/download-node.js)
   fi
+  # Rebuild apm natives for Node 12 ABI. Prefer modern node-gyp (finds VS 2022/18);
+  # apm's bundled node-gyp 5 only knows up to older VS versions.
+  rebuild_apm_native() {
+    local pkg_dir="$1"
+    local label="$2"
+    [ -d "$pkg_dir" ] || return 0
+    echo "Rebuilding apm native: $label"
+    if [ -x "$MODERN_GYP" ]; then
+      (cd "$pkg_dir" && "$MODERN_GYP" rebuild \
+        --target=12.14.1 \
+        --dist-url=https://nodejs.org/dist \
+        --arch="$(node -p "process.arch")" \
+        ${npm_config_msvs_version:+--msvs_version="$npm_config_msvs_version"}) || return 1
+    elif [ -f "$APM_GYP" ] && [ -x "$APM_NODE" ]; then
+      (cd "$pkg_dir" && "$APM_NODE" "$APM_GYP" rebuild) || return 1
+    else
+      return 1
+    fi
+  }
+
   if [ -x "$APM_NODE" ] && [ -x "$APM_NPM" ]; then
-    echo "Rebuilding apm dependencies with bundled Node $($APM_NODE -p "process.version")…"
-    # Clear host-toolchain npm_config_* that would confuse Node-12 rebuilds
+    echo "Rebuilding apm dependencies with bundled Node $($APM_NODE -p "process.version")..."
+    # Clear host Electron targeting so rebuilds target Node 12, not Electron.
     (
       unset npm_config_target npm_config_runtime npm_config_disturl \
             npm_config_build_from_source npm_config_arch npm_config_node_gyp || true
       export npm_config_python="${PYTHON:-}"
       export NODE_GYP_FORCE_PYTHON="${PYTHON:-}"
       cd "$APM_PKG" && ./bin/npm rebuild
-    ) || {
-      echo "apm npm rebuild failed; trying oniguruma only…"
-      if [ -d "$ONIG" ] && [ -f "$APM_GYP" ]; then
-        (cd "$ONIG" && "$APM_NODE" "$APM_GYP" rebuild) || true
-      elif [ -d "$ONIG" ] && [ -x "$MODERN_GYP" ]; then
-        (cd "$ONIG" && "$MODERN_GYP" rebuild \
-          --target=12.14.1 \
-          --dist-url=https://nodejs.org/dist \
-          --arch="$(node -p "process.arch")") || true
+    ) || echo "apm npm rebuild failed; rebuilding natives with modern node-gyp..."
+
+    # Always ensure critical natives exist (git-utils is required for apm install).
+    GIT_UTILS="$APM_PKG/node_modules/git-utils"
+    KEYTAR_APM="$APM_PKG/node_modules/keytar"
+    for _pair in \
+      "$ONIG|oniguruma" \
+      "$GIT_UTILS|git-utils" \
+      "$KEYTAR_APM|keytar"; do
+      _dir="${_pair%%|*}"
+      _name="${_pair##*|}"
+      _node_bin=""
+      case "$_name" in
+        oniguruma) _node_bin="$_dir/build/Release/onig_scanner.node" ;;
+        git-utils) _node_bin="$_dir/build/Release/git.node" ;;
+        keytar) _node_bin="$_dir/build/Release/keytar.node" ;;
+      esac
+      if [ -n "$_node_bin" ] && [ ! -f "$_node_bin" ]; then
+        rebuild_apm_native "$_dir" "$_name" || \
+          echo "WARNING: failed to rebuild apm native $_name"
       fi
-    }
+    done
   else
     echo "WARNING: apm bundled Node missing after download; apm may not run."
   fi
 fi
 
 # --- Step 3: apm --version ---------------------------------------------------
-echo "Checking apm…"
+echo "Checking apm..."
 export ATOM_RESOURCE_PATH="$REPO_ROOT"
-"$REPO_ROOT/apm/node_modules/atom-package-manager/bin/apm" --version
-
+if ! "$REPO_ROOT/apm/node_modules/atom-package-manager/bin/apm" --version; then
+  echo "error: apm --version failed (natives missing?)" >&2
+  exit 1
+fi
 # --- Step 4: root app dependencies (Electron headers via ATOM_ELECTRON_URL) --
 # Clear Node-12 targeting so apm uses Electron runtime from package.json
 unset npm_config_target npm_config_runtime npm_config_disturl npm_config_build_from_source || true
