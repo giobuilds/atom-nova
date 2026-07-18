@@ -9,8 +9,11 @@
 export PATH="/bin:/usr/bin:/usr/local/bin:/opt/homebrew/bin:${PATH:-}"
 
 _atomnova_ensure_nan_cache() {
-  local nan_ver="2.17.0"
-  local cache="/tmp/atomnova-nan-${nan_ver}"
+  # Electron 43 / V8 13+ needs nan >= 2.22 (ScriptOrigin / External::Value APIs).
+  # Keep this in sync with root package-lock nan.
+  local nan_ver="2.28.0"
+  # Prefer OS temp (Windows Git Bash: $TMPDIR or /tmp may differ).
+  local cache="${TMPDIR:-/tmp}/atomnova-nan-${nan_ver}"
   if [ ! -d "$cache/package" ]; then
     # Status on stderr so $(...) only captures the path.
     echo "Fetching nan@${nan_ver}..." >&2
@@ -165,7 +168,7 @@ atomnova_upgrade_nan_for_electron14() {
     else
       needs_upgrade="$(node -e "
         const v=process.argv[1].split('.').map(Number);
-        const min=[2,15,0];
+        const min=[2,22,0];
         let lt=false;
         for (let i=0;i<3;i++){
           if ((v[i]||0)<min[i]){lt=true;break;}
@@ -175,7 +178,7 @@ atomnova_upgrade_nan_for_electron14() {
       " "$ver" 2>/dev/null || echo 0)"
     fi
     if [ "$needs_upgrade" = "1" ]; then
-      echo "Upgrading nan ${ver:-unknown} -> 2.17.0 at $nan_dir"
+      echo "Upgrading nan ${ver:-unknown} -> 2.28.0 at $nan_dir"
       rm -rf "$nan_dir"
       mkdir -p "$(dirname "$nan_dir")"
       cp -R "$nan_src" "$nan_dir"
