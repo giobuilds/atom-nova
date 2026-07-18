@@ -25,29 +25,56 @@ const getAppDirectory = () => {
   }
 };
 
-module.exports = {
-  setAtomHome: homePath => {
-    // When a read-writeable .atom folder exists above app use that
-    const portableHomePath = path.join(getAppDirectory(), '..', '.atom');
-    if (fs.existsSync(portableHomePath)) {
-      if (hasWriteAccess(portableHomePath)) {
-        process.env.ATOM_HOME = portableHomePath;
-      } else {
-        // A path exists so it was intended to be used but we didn't have rights, so warn.
+/**
+ * Resolve the config home directory with dual-support:
+ *   1. CHEVRON_HOME (explicit)
+ *   2. ATOM_HOME (explicit, Atom ecosystem)
+ *   3. Portable sibling .chevron / .atom next to the app (if writable)
+ *   4. ~/.chevron if it already exists
+ *   5. ~/.atom (default — preserve existing Atom / Chevron users)
+ */
+function resolveConfigHome(homePath) {
+  if (process.env.CHEVRON_HOME) {
+    return process.env.CHEVRON_HOME;
+  }
+  if (process.env.ATOM_HOME) {
+    return process.env.ATOM_HOME;
+  }
+
+  const appDir = getAppDirectory();
+  if (appDir) {
+    for (const dirName of ['.chevron', '.atom']) {
+      const portableHomePath = path.join(appDir, '..', dirName);
+      if (fs.existsSync(portableHomePath)) {
+        if (hasWriteAccess(portableHomePath)) {
+          return portableHomePath;
+        }
         console.log(
-          `Insufficient permission to portable Atom home "${portableHomePath}".`
+          `Insufficient permission to portable home "${portableHomePath}".`
         );
       }
     }
+  }
 
-    // Check ATOM_HOME environment variable next
-    if (process.env.ATOM_HOME !== undefined) {
-      return;
+  const chevronHome = path.join(homePath, '.chevron');
+  if (fs.existsSync(chevronHome)) {
+    return chevronHome;
+  }
+
+  return path.join(homePath, '.atom');
+}
+
+module.exports = {
+  setAtomHome: homePath => {
+    const resolved = resolveConfigHome(homePath);
+    process.env.ATOM_HOME = resolved;
+    // Mirror for tooling that looks at CHEVRON_HOME after startup.
+    if (!process.env.CHEVRON_HOME) {
+      process.env.CHEVRON_HOME = resolved;
     }
-
-    // Fall back to default .atom folder in users home folder
-    process.env.ATOM_HOME = path.join(homePath, '.atom');
   },
+
+  resolveConfigHome,
 
   setUserData: app => {
     const electronUserDataPath = path.join(
@@ -58,7 +85,6 @@ module.exports = {
       if (hasWriteAccess(electronUserDataPath)) {
         app.setPath('userData', electronUserDataPath);
       } else {
-        // A path exists so it was intended to be used but we didn't have rights, so warn.
         console.log(
           `Insufficient permission to Electron user data "${electronUserDataPath}".`
         );
@@ -66,5 +92,21 @@ module.exports = {
     }
   },
 
-  getAppDirectory: getAppDirectory
+  getAppDirectory: getAppDirectory,
+
+  /**
+   * Normalize chevron:// URIs to atom:// so package URI handlers keep working.
+   * atom:// is the public package API (dual-support forever).
+   */
+  normalizeAppUri: uri => {
+    if (typeof uri !== 'string') return uri;
+    if (uri.startsWith('chevron://')) {
+      return 'atom://' + uri.slice('chevron://'.length);
+    }
+    return uri;
+  },
+
+  isAppUri: uri =>
+    typeof uri === 'string' &&
+    (uri.startsWith('atom://') || uri.startsWith('chevron://'))
 };

@@ -123,18 +123,16 @@ let UpdateManager = class UpdateManager {
   }
 
   getReleaseNotesURLForVersion(appVersion) {
-    // Dev versions will not have a releases page
+    // Point at this project's releases (Atom.io feeds are gone).
     if (appVersion.indexOf('dev') > -1) {
-      return 'https://atom.io/releases';
+      return 'https://github.com/builtbygio/chevron/releases';
     }
 
     if (!appVersion.startsWith('v')) {
       appVersion = `v${appVersion}`;
     }
 
-    const releaseRepo =
-      appVersion.indexOf('nightly') > -1 ? 'atom-nightly-releases' : 'atom';
-    return `https://github.com/atom/${releaseRepo}/releases/tag/${appVersion}`;
+    return `https://github.com/builtbygio/chevron/releases/tag/${appVersion}`;
   }
 };
 

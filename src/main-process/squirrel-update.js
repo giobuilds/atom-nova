@@ -28,16 +28,20 @@ const spawnSetx = (args, callback) => Spawner.spawn(setxPath, args, callback);
 const spawnUpdate = (args, callback) =>
   Spawner.spawn(updateDotExe, args, callback);
 
-// Add atom and apm to the PATH
+// Add the app launcher and apm to the PATH
 //
-// This is done by adding .cmd shims to the root bin folder in the Atom
-// install directory that point to the newly installed versions inside
-// the versioned app directories.
+// This is done by adding .cmd shims to the root bin folder in the install
+// directory that point to the newly installed versions inside the versioned
+// app directories. apm is always named apm / apm-beta / apm-nightly — never
+// derived by string-replacing "atom" in the exe name (breaks chevron.exe).
 const addCommandsToPath = callback => {
-  const atomCmdName = execName.replace('.exe', '.cmd');
-  const apmCmdName = atomCmdName.replace('atom', 'apm');
-  const atomShName = execName.replace('.exe', '');
-  const apmShName = atomShName.replace('atom', 'apm');
+  const atomCmdName = execName.replace(/\.exe$/i, '.cmd');
+  const atomShName = execName.replace(/\.exe$/i, '');
+  // Channel suffix from chevron-beta.exe / atom-beta.exe → apm-beta
+  const channelMatch = atomShName.match(/-(beta|nightly|dev)$/i);
+  const apmBase = channelMatch ? `apm-${channelMatch[1].toLowerCase()}` : 'apm';
+  const apmCmdName = `${apmBase}.cmd`;
+  const apmShName = apmBase;
 
   const installCommands = callback => {
     const atomCommandPath = path.join(binFolder, atomCmdName);

@@ -56,7 +56,7 @@ export default class WelcomePackage {
       )
     );
 
-    // Telemetry consent UI removed — AtomNova does not collect telemetry.
+    // Telemetry consent UI removed — Chevron does not collect telemetry.
     if (atom.config.get('core.telemetryConsent') !== 'no') {
       atom.config.set('core.telemetryConsent', 'no');
     }
@@ -66,10 +66,8 @@ export default class WelcomePackage {
       this.reporterProxy.sendEvent('show-on-initial-load');
     }
 
-    if (atom.config.get('welcome.showSunsettingOnStartup')) {
-      await this.showSunsetting();
-      this.reporterProxy.sendEvent('show-sunsetting-on-initial-load');
-    }
+    // Upstream Atom sunsetting notice is historical; do not show on Chevron.
+    // Keep the view registered for anyone who opens atom://welcome/sunsetting.
   }
 
   showWelcome() {

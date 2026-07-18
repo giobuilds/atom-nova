@@ -150,7 +150,11 @@ module.exports = function parseCommandLine(processArgs) {
     args = {
       uriHandler: true,
       'uri-handler': true,
-      _: args._.filter(str => str.startsWith('atom://')).slice(0, 1)
+      _: args._.filter(
+        str =>
+          typeof str === 'string' &&
+          (str.startsWith('atom://') || str.startsWith('chevron://'))
+      ).slice(0, 1)
     };
   }
 
@@ -198,8 +202,13 @@ module.exports = function parseCommandLine(processArgs) {
       // In the next block, .startsWith() only works on strings. So, skip non-string arguments.
       continue;
     }
-    if (path.startsWith('atom://')) {
-      urlsToOpen.push(path);
+    if (path.startsWith('atom://') || path.startsWith('chevron://')) {
+      // Normalize chevron:// → atom:// so package URI handlers keep working.
+      urlsToOpen.push(
+        path.startsWith('chevron://')
+          ? 'atom://' + path.slice('chevron://'.length)
+          : path
+      );
     } else {
       pathsToOpen.push(path);
     }
