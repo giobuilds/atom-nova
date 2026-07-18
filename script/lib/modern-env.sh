@@ -171,6 +171,8 @@ case "$(uname -s 2>/dev/null)-${OS:-}" in
       "$(dirname "$(command -v git 2>/dev/null || true)")/../libexec/git-core"; do
       if [ -n "$_git_exec" ] && [ -f "$_git_exec/git-sh-setup" ]; then
         export GIT_EXEC_PATH="$_git_exec"
+        # git-submodule does `. git-sh-setup` which resolves via PATH, not only GIT_EXEC_PATH.
+        export PATH="$_git_exec:$PATH"
         break
       fi
     done
