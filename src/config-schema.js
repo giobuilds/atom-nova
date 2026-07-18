@@ -341,7 +341,7 @@ const configSchema = {
       },
       telemetryConsent: {
         description:
-          'Telemetry is disabled in AtomNova. No usage statistics or exception reports are sent.',
+          'Telemetry is disabled in Chevron. No usage statistics or exception reports are sent.',
         title: 'Telemetry (disabled)',
         type: 'string',
         default: 'no',

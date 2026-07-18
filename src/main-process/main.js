@@ -25,10 +25,10 @@ function isAtomRepoPath(repoPath) {
   if (fs.statSyncNoException(packageJsonPath)) {
     try {
       let packageJson = CSON.readFileSync(packageJsonPath);
-      // Upstream Atom used "atom"; AtomNova uses "atomnova-editor".
-      return (
-        packageJson.name === 'atom' || packageJson.name === 'atomnova-editor'
-      );
+      // Product names over time: Atom → AtomNova intermediate → Chevron.
+      // Accept all so dev mode finds the repo regardless of package.json name.
+      const productNames = new Set(['chevron', 'atomnova-editor', 'atom']);
+      return productNames.has(packageJson.name);
     } catch (e) {
       return false;
     }

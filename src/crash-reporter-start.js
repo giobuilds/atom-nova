@@ -11,19 +11,19 @@ module.exports = function(params) {
     return;
   }
 
-  // Local crash reporting only — never submit to atom.io or other endpoints.
+  // Local crash reporting only — never upload to third parties.
   // submitURL is required by Electron but unused when uploadToServer is false.
   crashReporter.start({
-    productName: 'AtomNova',
-    companyName: 'AtomNova',
-    submitURL: 'https://127.0.0.1/atomnova-crash-reports-disabled',
+    productName: 'Chevron',
+    companyName: 'Chevron',
+    submitURL: 'https://127.0.0.1/chevron-crash-reports-disabled',
     uploadToServer: false,
     ignoreSystemCrashHandler: false,
     // Electron 9+ uses globalExtra / extra differently; keep both safe.
     extra: { platformRelease, arch, releaseChannel },
     globalExtra: {
-      _companyName: 'AtomNova',
-      _productName: 'AtomNova',
+      _companyName: 'Chevron',
+      _productName: 'Chevron',
       platformRelease,
       arch,
       releaseChannel: String(releaseChannel || '')

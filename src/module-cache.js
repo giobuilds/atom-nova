@@ -179,11 +179,9 @@ function loadExtensions(modulePath, rootPath, rootMetadata, moduleCache) {
     // Don't include extensions from bundled packages
     // These are generated and stored in the package's own metadata cache
     // Skip bundled package trees when building the app root module cache.
-    // AtomNova package name is atomnova-editor (upstream was atom).
-    if (
-      rootMetadata.name === 'atom' ||
-      rootMetadata.name === 'atomnova-editor'
-    ) {
+    // Product package.json name: chevron (current), atomnova-editor, or atom.
+    const productNames = new Set(['chevron', 'atomnova-editor', 'atom']);
+    if (productNames.has(rootMetadata.name)) {
       const parentPath = path.dirname(childPath);
       if (parentPath === nodeModulesPath) {
         const packageName = path.basename(childPath);

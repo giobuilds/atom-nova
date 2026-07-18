@@ -23,7 +23,7 @@ module.exports = function() {
   );
   return runPackager({
     appBundleId: 'com.github.atom',
-    appCopyright: `Copyright © 2014-${new Date().getFullYear()} GitHub, Inc. All rights reserved.`,
+    appCopyright: `Copyright © 2014-${new Date().getFullYear()} Chevron contributors and original Atom authors. All rights reserved.`,
     appVersion: CONFIG.appMetadata.version,
     // Native arch on each host (Intel x64 or Apple Silicon arm64 on macOS).
     arch: HOST_ARCH,
