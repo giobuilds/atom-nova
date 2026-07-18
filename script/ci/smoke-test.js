@@ -154,17 +154,35 @@ function jsonList() {
 
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-// The state we assert on, evaluated inside the app. Returns 'pending' until
-// the workspace and all three probe editors are ready.
+// Evaluated inside the app (isolated world). Returns JSON with status:
+//   pending | no-atom | no-workspace | waiting-editors | ready
 const PROBE_EXPR = `(function() {
-  if (typeof atom === 'undefined' || !atom.workspace) return 'pending';
+  if (typeof atom === 'undefined') return JSON.stringify({status:'no-atom'});
+  if (!atom.workspace) return JSON.stringify({status:'no-workspace'});
   const editors = atom.workspace.getTextEditors();
-  if (editors.length < 3) return 'pending';
+  const paths = editors.map(e => e.getPath() || '(untitled)');
+  const packagesActive = atom.packages.getActivePackages().length;
+  if (editors.length < 3) {
+    return JSON.stringify({
+      status: 'waiting-editors',
+      count: editors.length,
+      paths: paths,
+      packagesActive: packagesActive
+    });
+  }
   const byExt = ext =>
     editors.find(e => (e.getPath() || '').endsWith(ext));
-  if (!byExt('.txt') || !byExt('.ts') || !byExt('.css')) return 'pending';
+  if (!byExt('.txt') || !byExt('.ts') || !byExt('.css')) {
+    return JSON.stringify({
+      status: 'waiting-editors',
+      count: editors.length,
+      paths: paths,
+      packagesActive: packagesActive
+    });
+  }
   return JSON.stringify({
-    packagesActive: atom.packages.getActivePackages().length,
+    status: 'ready',
+    packagesActive: packagesActive,
     notifications: atom.notifications
       .getNotifications()
       .filter(n => ['error', 'fatal'].includes(n.getType()))
@@ -176,12 +194,29 @@ const PROBE_EXPR = `(function() {
   });
 })()`;
 
+function isPageTarget(target) {
+  if (!target || target.type !== 'page') return false;
+  const url = target.url || '';
+  // file://…/static/index.html, app://, or atom://-style loads
+  return (
+    /index\.html/i.test(url) ||
+    /static/i.test(url) ||
+    /^file:\/\//i.test(url)
+  );
+}
+
 async function probeWindow() {
   const targets = await jsonList();
-  const page = targets.find(
-    target => target.type === 'page' && /index\.html/.test(target.url)
-  );
-  if (!page) return 'pending';
+  const page =
+    targets.find(isPageTarget) ||
+    targets.find(target => target.type === 'page');
+  if (!page) {
+    return {
+      status: 'pending',
+      reason: 'no-page-target',
+      targets: targets.map(t => ({ type: t.type, url: t.url }))
+    };
+  }
 
   const ws = new WebSocket(page.webSocketDebuggerUrl, {
     maxPayload: 256 * 1024 * 1024
@@ -211,19 +246,38 @@ async function probeWindow() {
         ws.send(JSON.stringify({ id, method, params }));
       });
 
+    // Runtime.enable emits executionContextCreated for *existing* contexts too.
     await call('Runtime.enable');
-    await delay(500); // let executionContextCreated events arrive
+    await delay(400);
 
-    for (const contextId of contexts) {
-      const result = await call('Runtime.evaluate', {
+    const contextIds = contexts.length > 0 ? contexts : [undefined];
+    for (const contextId of contextIds) {
+      const params = {
         expression: PROBE_EXPR,
-        returnByValue: true,
-        contextId
-      });
+        returnByValue: true
+      };
+      if (contextId !== undefined) params.contextId = contextId;
+      const result = await call('Runtime.evaluate', params);
       const value = result && result.result && result.result.value;
-      if (value && value !== 'pending') return JSON.parse(value);
+      if (!value) continue;
+      let parsed;
+      try {
+        parsed = JSON.parse(value);
+      } catch (error) {
+        continue;
+      }
+      if (parsed.status === 'ready') return parsed;
+      // Surface progressive status so the outer loop can log it
+      parsed.pageUrl = page.url;
+      parsed.contextCount = contexts.length;
+      return parsed;
     }
-    return 'pending';
+    return {
+      status: 'pending',
+      reason: 'no-atom-in-contexts',
+      pageUrl: page.url,
+      contextCount: contexts.length
+    };
   } finally {
     ws.close();
   }
@@ -242,6 +296,23 @@ function linuxNeedsNoSandbox(binaryPath) {
   } catch (error) {
     return true;
   }
+}
+
+function linuxLaunchFlags(binaryPath) {
+  const flags = [];
+  // Electron 28+ ozone: force X11 so Xvfb DISPLAY is used (not Wayland).
+  flags.push('--ozone-platform=x11');
+  // Headless CI: avoid GPU/WebGL blocklist stalls under Xvfb.
+  flags.push(
+    '--disable-gpu',
+    '--disable-gpu-compositing',
+    '--disable-dev-shm-usage',
+    '--disable-software-rasterizer'
+  );
+  if (linuxNeedsNoSandbox(binaryPath)) {
+    flags.push('--no-sandbox', '--disable-setuid-sandbox');
+  }
+  return flags;
 }
 
 async function main() {
@@ -266,16 +337,21 @@ async function main() {
     `--remote-debugging-port=${PORT}`,
     '--user-data-dir=' + path.join(atomHome, 'electronUserData')
   ];
-  if (linuxNeedsNoSandbox(binary)) {
-    console.log(
-      'smoke-test: chrome-sandbox not root/setuid — adding --no-sandbox'
-    );
-    launchArgs.push('--no-sandbox');
+  if (process.platform === 'linux') {
+    const linuxFlags = linuxLaunchFlags(binary);
+    console.log('smoke-test: linux flags', linuxFlags.join(' '));
+    launchArgs.push(...linuxFlags);
   }
   launchArgs.push(probes.txt, probes.ts, probes.css);
 
   const app = childProcess.spawn(binary, launchArgs, {
-    env: Object.assign({}, process.env, { ATOM_HOME: atomHome }),
+    env: Object.assign({}, process.env, {
+      ATOM_HOME: atomHome,
+      // Prefer software GL if any GPU path still runs under Xvfb.
+      LIBGL_ALWAYS_SOFTWARE: process.env.LIBGL_ALWAYS_SOFTWARE || '1',
+      ELECTRON_OZONE_PLATFORM_HINT:
+        process.env.ELECTRON_OZONE_PLATFORM_HINT || 'x11'
+    }),
     stdio: ['ignore', 'pipe', 'pipe']
   });
   let appOutput = '';
@@ -294,7 +370,8 @@ async function main() {
 
   try {
     const deadline = Date.now() + STARTUP_TIMEOUT_MS;
-    let state = 'pending';
+    let state = { status: 'pending' };
+    let lastLog = '';
     while (Date.now() < deadline) {
       if (appExited) {
         console.error('smoke-test: app exited during startup');
@@ -304,15 +381,34 @@ async function main() {
       try {
         state = await probeWindow();
       } catch (error) {
-        state = 'pending';
+        state = { status: 'pending', reason: String(error.message || error) };
       }
-      if (state !== 'pending') break;
+      if (state && state.status === 'ready') break;
+      const progress = JSON.stringify(state);
+      if (progress !== lastLog) {
+        console.log('smoke-test: progress', progress);
+        lastLog = progress;
+      }
       await delay(2000);
     }
 
-    if (state === 'pending') {
+    if (!state || state.status !== 'ready') {
       console.error('smoke-test: TIMEOUT waiting for workspace');
-      console.error(appOutput.slice(-4000));
+      console.error('smoke-test: last probe', JSON.stringify(state, null, 2));
+      try {
+        const targets = await jsonList();
+        console.error(
+          'smoke-test: CDP targets',
+          JSON.stringify(
+            targets.map(t => ({ type: t.type, url: t.url, title: t.title })),
+            null,
+            2
+          )
+        );
+      } catch (error) {
+        console.error('smoke-test: could not list CDP targets:', error.message);
+      }
+      console.error(appOutput.slice(-6000));
       process.exit(2);
     }
 
