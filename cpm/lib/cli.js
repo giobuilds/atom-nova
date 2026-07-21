@@ -48,6 +48,10 @@ async function main(argv = process.argv) {
   program
     .command('install [spec]')
     .option('--allow-scripts', 'Run package lifecycle scripts (off by default)')
+    .option(
+      '--strict',
+      'Fail when engines.atom / engines.chevron are not satisfied'
+    )
     .action(async (spec, opts) => {
       if (!spec) {
         process.stderr.write('cpm install: package name, URL, or path required\n');
@@ -55,7 +59,8 @@ async function main(argv = process.argv) {
         return;
       }
       process.exitCode = await installPackage(spec, {
-        allowScripts: opts.allowScripts
+        allowScripts: opts.allowScripts,
+        strict: opts.strict
       });
     });
 

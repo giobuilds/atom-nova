@@ -14,6 +14,15 @@ const {
   getCpmMetaDirectory
 } = require('../paths');
 const { rebuildPackages } = require('./rebuild');
+const { checkEngines, getProductVersion } = require('../engines');
+
+function packageDirName(name) {
+  // Unscoped: "foo". Scoped: "@scope/foo" → keep nested dir under packages/
+  if (name.startsWith('@') && name.includes('/')) {
+    return name; // path.join will create packages/@scope/foo
+  }
+  return name;
+}
 
 async function installPackage(spec, options = {}) {
   const packagesDir = getPackagesDirectory();
@@ -21,6 +30,7 @@ async function installPackage(spec, options = {}) {
   await fs.ensureDir(getCpmMetaDirectory());
 
   const allowScripts = Boolean(options.allowScripts);
+  const strictEngines = Boolean(options.strict);
   let pacote;
   let Arborist;
   try {
@@ -50,7 +60,21 @@ async function installPackage(spec, options = {}) {
     return 1;
   }
 
-  const dest = path.join(packagesDir, path.basename(name));
+  const productVersion = getProductVersion();
+  const engineCheck = checkEngines(manifest, productVersion, {
+    strict: strictEngines
+  });
+  for (const w of engineCheck.warnings) {
+    process.stderr.write(`cpm install warning: ${w}\n`);
+  }
+  if (!engineCheck.ok) {
+    for (const e of engineCheck.errors) {
+      process.stderr.write(`cpm install: ${e}\n`);
+    }
+    return 1;
+  }
+
+  const dest = path.join(packagesDir, packageDirName(name));
   process.stdout.write(`Installing ${name}@${manifest.version} → ${dest}\n`);
 
   if (await fs.pathExists(dest)) {

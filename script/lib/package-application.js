@@ -160,6 +160,7 @@ function copyNonASARResources(packagedAppPath, bundledResourcesPath) {
       'apm.cmd',
       'apm.sh',
       'cpm.cmd',
+      'cpm.sh',
       'file.ico',
       'folder.ico'
     ].forEach(file => {
