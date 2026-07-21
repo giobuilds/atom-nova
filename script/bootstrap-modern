@@ -159,11 +159,20 @@ rebuild_package_modern() {
 }
 
 echo "Electron $ELECTRON_VERSION: host npm rebuild + modern gyp force list"
-(cd "$REPO_ROOT" && npm rebuild --ignore-scripts 2>&1) || \
-  echo "npm rebuild skipped/failed; will force per-package Electron rebuilds..."
+# Do not pass --ignore-scripts here: install used ignore-scripts, so nothing
+# has .node yet. npm_config_runtime=electron is set above.
+(cd "$REPO_ROOT" && npm rebuild 2>&1) || \
+  echo "npm rebuild failed; will force per-package Electron rebuilds..."
 
 echo "Force-rebuilding critical natives for Electron $ELECTRON_VERSION..."
-for _pkg in superstring tree-sitter '@atom/watcher' keytar spellchecker pathwatcher git-utils scrollbar-style nslog '@atom/nsfw' '@atom/fuzzy-native'; do
+# keyboard-layout is required at runtime (smoke fails without keyboard-layout-manager.node).
+# ctags / fs-admin / oniguruma are also app natives not covered by a partial list.
+for _pkg in \
+  superstring tree-sitter \
+  '@atom/watcher' '@atom/nsfw' '@atom/fuzzy-native' \
+  keytar spellchecker pathwatcher git-utils scrollbar-style nslog \
+  keyboard-layout ctags fs-admin oniguruma
+do
   _dir="$REPO_ROOT/node_modules/$_pkg"
   if [ -d "$_dir" ]; then
     echo "  rebuild $_pkg..."
