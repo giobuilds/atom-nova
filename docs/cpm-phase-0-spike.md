@@ -105,3 +105,9 @@ npx electron-rebuild -v 43.1.0 -f -w keytar
 - [x] Failures bucketed (lock / packageDeps / natives)  
 - [x] §13.5 lean confirmed as Option A  
 - [x] Written up for implementers  
+
+## Follow-up (2026-07-21) — implemented
+
+- Lockfile regenerated to **lockfileVersion 3**; `npm ci --ignore-scripts` proven (91/91 packageDependencies).  
+- `bootstrap-modern` default path uses host npm; `--with-apm` optional; CI uses `--ci --with-apm` so product still ships apm.  
+- Design §13.4 / §13.5 marked resolved.
