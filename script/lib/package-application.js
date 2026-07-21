@@ -93,40 +93,71 @@ module.exports = function() {
 
 function copyNonASARResources(packagedAppPath, bundledResourcesPath) {
   console.log(`Copying non-ASAR resources to ${bundledResourcesPath}`);
-  fs.copySync(
-    path.join(
-      CONFIG.repositoryRootPath,
-      'apm',
-      'node_modules',
-      'atom-package-manager'
-    ),
-    path.join(bundledResourcesPath, 'app', 'apm'),
-    { filter: includePathInPackagedApp }
-  );
 
-  // Phase 1: ship cpm alongside apm (getApmPath prefers cpm).
+  // Phase 4: ship cpm only (no classic atom-package-manager Node 12 tree).
   const cpmSrc = path.join(CONFIG.repositoryRootPath, 'cpm');
-  if (fs.existsSync(cpmSrc)) {
-    console.log('Copying cpm into packaged app resources…');
-    fs.copySync(cpmSrc, path.join(bundledResourcesPath, 'app', 'cpm'), {
-      filter: includePathInPackagedApp
+  if (!fs.existsSync(cpmSrc)) {
+    throw new Error(
+      'cpm/ is required for packaging (Phase 4: classic apm removed from product)'
+    );
+  }
+  if (!fs.existsSync(path.join(cpmSrc, 'node_modules'))) {
+    console.log('Installing cpm dependencies before packaging…');
+    const { execFileSync } = require('child_process');
+    const npmArgs = fs.existsSync(path.join(cpmSrc, 'package-lock.json'))
+      ? ['ci', '--ignore-scripts', '--no-audit', '--no-fund']
+      : ['install', '--ignore-scripts', '--no-audit', '--no-fund'];
+    execFileSync('npm', npmArgs, {
+      cwd: cpmSrc,
+      stdio: 'inherit',
+      env: process.env
     });
+  }
+  console.log('Copying cpm into packaged app resources…');
+  fs.copySync(cpmSrc, path.join(bundledResourcesPath, 'app', 'cpm'), {
+    filter: includePathInPackagedApp
+  });
+
+  // Legacy app/apm/... paths → cpm apm shim (scripts/installers that still expect apm layout)
+  const legacyApmBin = path.join(
+    bundledResourcesPath,
+    'app',
+    'apm',
+    'node_modules',
+    '.bin'
+  );
+  fs.mkdirSync(legacyApmBin, { recursive: true });
+  const legacyApmTop = path.join(bundledResourcesPath, 'app', 'apm', 'bin');
+  fs.mkdirSync(legacyApmTop, { recursive: true });
+  if (process.platform === 'win32') {
+    fs.writeFileSync(
+      path.join(legacyApmBin, 'apm.cmd'),
+      '@echo off\r\n"%~dp0\\..\\..\\..\\cpm\\bin\\apm.cmd" %*\r\n'
+    );
+    fs.writeFileSync(
+      path.join(legacyApmTop, 'apm.cmd'),
+      '@echo off\r\n"%~dp0\\..\\cpm\\bin\\apm.cmd" %*\r\n'
+    );
+  } else {
+    try {
+      fs.symlinkSync(
+        path.join('..', '..', '..', 'cpm', 'bin', 'apm'),
+        path.join(legacyApmBin, 'apm')
+      );
+    } catch (e) {
+      if (e.code !== 'EEXIST') console.warn(e.message);
+    }
+    try {
+      fs.symlinkSync(
+        path.join('..', 'cpm', 'bin', 'apm'),
+        path.join(legacyApmTop, 'apm')
+      );
+    } catch (e) {
+      if (e.code !== 'EEXIST') console.warn(e.message);
+    }
   }
 
   if (process.platform !== 'win32') {
-    // Existing symlinks on user systems point to an outdated path, so just symlink it to the real location of the apm binary.
-    // TODO: Change command installer to point to appropriate path and remove this fallback after a few releases.
-    fs.symlinkSync(
-      path.join('..', '..', 'bin', 'apm'),
-      path.join(
-        bundledResourcesPath,
-        'app',
-        'apm',
-        'node_modules',
-        '.bin',
-        'apm'
-      )
-    );
     fs.copySync(
       path.join(CONFIG.repositoryRootPath, 'atom.sh'),
       path.join(bundledResourcesPath, 'app', 'atom.sh')
