@@ -241,4 +241,4 @@ Update in Phase 0 docs PR after behavior changes.
 - [x] Product apm surfaces marked out of Phase 0  
 - [x] Explicit “what breaks if …”  
 
-**Next:** Step 2 — throwaway spike: host `npm ci --ignore-scripts` (or install) without apm; list failures in lock / packageDeps / natives buckets.
+**Next:** Step 2 — throwaway spike (done): see [cpm-phase-0-spike.md](./cpm-phase-0-spike.md).
