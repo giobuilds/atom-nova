@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Phase 0 bootstrap:** root app `node_modules` via **host npm** (not apm/Node 12)
+  - `package-lock.json` → lockfileVersion 3; root `.npmrc` with `legacy-peer-deps=true`
+  - `script/bootstrap-modern` uses `install-app-dependencies.js`; optional `--with-apm` for packaging/dev
+  - Bundled `packageDependencies` stay root `dependencies` (design §13.5 Option A)
 - **First-run / onboarding polish** (`packages/welcome`):
   - Removed Atom sunsetting and telemetry consent views (no user path to either)
   - Welcome: works/WIP panel, project + shell-command CTAs, clearer two-tab sequencing

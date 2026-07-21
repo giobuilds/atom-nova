@@ -29,18 +29,27 @@ module.exports = {
     return fingerprint ? fingerprint !== this.compute() : false;
   },
   compute: function() {
-    // Include the electron minor version in the fingerprint since that changing requires a re-install
+    // Electron minor + package-lock identity + host Node (Phase 0: host npm, not apm).
     const electronVersion = CONFIG.appMetadata.electronVersion.replace(
       /\.\d+$/,
       ''
     );
-    const apmVersion = CONFIG.apmMetadata.dependencies['atom-package-manager'];
+    const lockPath = path.join(CONFIG.repositoryRootPath, 'package-lock.json');
+    let lockPart = 'nolock';
+    if (fs.existsSync(lockPath)) {
+      lockPart = crypto
+        .createHash('sha1')
+        .update(fs.readFileSync(lockPath))
+        .digest('hex')
+        .slice(0, 16);
+    }
     const body =
       electronVersion +
-      apmVersion +
+      lockPart +
       process.platform +
       process.version +
-      process.arch;
+      process.arch +
+      'host-npm';
     return crypto
       .createHash('sha1')
       .update(body)

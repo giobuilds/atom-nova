@@ -219,11 +219,11 @@ $PACKAGE_HOME/
 
 | Path | Today | Target |
 |------|--------|--------|
-| App `node_modules` / bootstrap | apm install + modern rebuild | **Phase 0:** host `npm ci` + `@electron/rebuild` (may not need full cpm) |
-| User community packages | apm | **cpm** |
-| Bundled `packageDependencies` | apm install into intermediate app tree | **Open decision — see §13.5** |
+| App `node_modules` / bootstrap | apm install + modern rebuild | **Phase 0:** host `npm ci` / `npm install` + modern node-gyp force rebuild |
+| User community packages | apm | **cpm** (Phase 1) |
+| Bundled `packageDependencies` | same root install (also in `dependencies`) | **§13.5 Option A — RESOLVED** (host npm) |
 
-**Recommended sequencing:** decouple **root app** install from apm first (Phase 0); ship **cpm for user packages** next; decide `packageDependencies` install path explicitly (§13.5) before claiming “apm removed from build.”
+**Sequencing:** Phase 0 decouples root app install from apm; Phase 1 ships cpm for user packages.
 
 ### 5.5 Command surface (v1)
 
@@ -583,13 +583,8 @@ Security tests: assert scripts do not run by default; assert branch-only git URL
 1. **Default package write home:** always `~/.atom/packages` vs prefer `~/.chevron/packages` when Chevron home exists.  
 2. **~~cpm process: host Node vs ELECTRON_RUN_AS_NODE~~ — RESOLVED:** always **`ELECTRON_RUN_AS_NODE=1` + product binary**. Host Node only for unit tests of pure logic. See §5.2, §5.7.  
 3. **Registry default:** Pulsar API vs Chevron static index first.  
-4. **Root app `node_modules` install:** pure host npm forever vs cpm-ci for monorepo packages (Phase 0 currently assumes host npm + `@electron/rebuild`).  
-5. **Bundled `packageDependencies` at build time (promoted — was only a cell in §5.4):**  
-   How should packages listed in root `package.json` → `packageDependencies` (and consumed by `generate-module-cache`, transpile-*, `include-path-in-packaged-app`, etc.) be installed into the intermediate app tree once apm is gone?  
-   - **Option A:** Host `npm install` / `npm ci` of those package paths as normal dependencies (or `file:` links) during bootstrap/packaging — simplest; may need care for Atom-only metadata.  
-   - **Option B:** `cpm ci` / `cpm install` against a manifest of packageDependencies under ELECTRON_RUN_AS_NODE — one tool for user + bundled packages; heavier Phase 1.  
-   - **Option C:** Hybrid — npm for pure JS bundled packages; cpm only when a packageDependency has natives or Atom install quirks.  
-   **Must be decided before Phase 0 “delete apm from bootstrap”** if any packageDependency still requires apm-only install semantics. Document choice here when picked.  
+4. **~~Root app `node_modules` install~~ — RESOLVED (Phase 0):** pure **host npm** (`npm ci` / `npm install --ignore-scripts --legacy-peer-deps`) + modern Electron rebuild in `bootstrap-modern`. Not cpm. Optional `--with-apm` only for packaging/dev until Phase 1.  
+5. **~~Bundled `packageDependencies` at build time~~ — RESOLVED Option A (2026-07-21):** all 91 entries are also root `dependencies` (`file:` + git pins). Host npm install of the app tree is sufficient; `packageDependencies` remains a metadata map for runtime/build. Spike: [cpm-phase-0-spike.md](./cpm-phase-0-spike.md).  
 6. **compile-cache at install (§5.7):** policy **(a)** load app compile-cache into cpm process vs **(b)** runtime-only transpile (design default lean **b**).  
 7. **Strict mode default** for end-user builds vs developer builds.  
 8. **`npm install --prefix` under ELECTRON_RUN_AS_NODE (§5.6):** day-one spike only. Outcomes: **strike fallback** (preferred if flaky) or **emergency-only, documented**. Default install path remains **arborist in-process** either way.
@@ -606,7 +601,7 @@ Document further resolutions in §15 when closed.
 - [ ] **§5.5.1** rebuild contract: in-app / incompatible-packages rebuild works via `getApmPath()`.  
 - [ ] **§5.8** Windows `apm.cmd` / `cpm.cmd` / Squirrel PATH / package-application CLI copy.  
 - [ ] **§5.7** compile-cache policy documented and verified with at least one CoffeeScript package.  
-- [ ] **§13.5** `packageDependencies` build-time strategy decided and implemented.  
+- [x] **§13.5** `packageDependencies` build-time strategy decided (**Option A**) and used in Phase 0 bootstrap.  
 - [ ] `apm` shim preserves common user scripts.  
 - [ ] Install scripts off by default; doctor documents risk.  
 - [ ] Product docs state install-time vs runtime security limits honestly.  
@@ -623,6 +618,7 @@ Document further resolutions in §15 when closed.
 | 2026-07-19 | Fix §3.4 (drop superseded “host Node” strategy) and §10 version framing (bootstrap = host npm, not cpm) vs §5.2 / §13.4 |
 | 2026-07-19 | §5.6: arborist in-process is primary; demote `npm install --prefix` to spike-gated / strike-if-flaky (§13.8) |
 | 2026-07-19 | Add `cpm-design-eli5.md`; drop superseded proposal as a required companion |
+| 2026-07-21 | Phase 0: resolve §13.4/§13.5 (host npm + Option A); bootstrap-modern off apm for app deps |
 
 ---
 

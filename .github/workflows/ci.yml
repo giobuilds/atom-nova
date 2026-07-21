@@ -30,7 +30,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: Use Node 24 (bootstrap host; apm keeps bundled Node 12)
+      - name: Use Node 24 (bootstrap host; app deps via host npm)
         uses: actions/setup-node@v5
         with:
           node-version: '24'
@@ -63,7 +63,7 @@ jobs:
             ${{ runner.os }}-node24-py312-electron-
 
       - name: Bootstrap
-        run: ./script/bootstrap-modern --ci
+        run: ./script/bootstrap-modern --ci --with-apm
 
       - name: Build
         run: ./script/with-modern-env ./script/build --no-bootstrap --compress-artifacts
@@ -136,7 +136,7 @@ jobs:
             dpkg-dev \
             rpm
 
-      - name: Use Node 24 (bootstrap host; apm keeps bundled Node 12)
+      - name: Use Node 24 (bootstrap host; app deps via host npm)
         uses: actions/setup-node@v5
         with:
           node-version: '24'
@@ -169,7 +169,7 @@ jobs:
             ${{ runner.os }}-node24-py312-electron-
 
       - name: Bootstrap
-        run: ./script/bootstrap-modern --ci
+        run: ./script/bootstrap-modern --ci --with-apm
 
       - name: Build + package (deb, tar, rpm)
         run: |
@@ -282,7 +282,7 @@ jobs:
             ${{ runner.os }}-${{ runner.arch }}-node24-py312-electron-
 
       - name: Bootstrap
-        run: ./script/bootstrap-modern --ci
+        run: ./script/bootstrap-modern --ci --with-apm
 
       - name: Build + package (deb, tar, rpm)
         run: |
@@ -335,7 +335,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: Use Node 24 (bootstrap host; apm keeps bundled Node 12)
+      - name: Use Node 24 (bootstrap host; app deps via host npm)
         uses: actions/setup-node@v5
         with:
           node-version: '24'
@@ -378,7 +378,7 @@ jobs:
           # Windows-style path: apm.cmd spawns git via cmd.exe, not Git Bash.
           export GIT_EXEC_PATH="C:/Program Files/Git/mingw64/libexec/git-core"
           export PATH="/c/Program Files/Git/mingw64/libexec/git-core:/c/Program Files/Git/cmd:$PATH"
-          ./script/bootstrap-modern --ci
+          ./script/bootstrap-modern --ci --with-apm
         env:
           PYTHONIOENCODING: utf-8
           PYTHONUTF8: "1"

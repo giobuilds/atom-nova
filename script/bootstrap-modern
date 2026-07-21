@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
 # Chevron bootstrap for modern host toolchains (macOS 13+ / Linux / Windows via Git Bash).
 #
-# Stock ./script/bootstrap assumes Node ~12–16 era + Python with distutils +
-# atom.io Electron headers. This wrapper applies the environment and patches
-# documented in docs/bootstrap-report.md, then runs the same install steps.
+# Phase 0: root app dependencies use **host npm** (not apm/Node 12).
+# Electron natives are still patched and rebuilt with modern node-gyp.
+# Product/user-package apm remains available via optional --with-apm until cpm.
 #
 # Usage:
 #   ./script/bootstrap-modern
 #   ./script/bootstrap-modern --ci
+#   ./script/bootstrap-modern --with-apm   # optional: also install apm for packaging/dev
 #
 # Then build with:
 #   ./script/with-modern-env ./script/build --no-bootstrap
@@ -21,18 +22,26 @@ cd "$REPO_ROOT"
 # shellcheck disable=SC1091
 . "$SCRIPT_DIR/lib/modern-env.sh"
 
-if [ "${1:-}" = "--ci" ] || [ "${CI:-}" = "true" ]; then
-  export CI=true
+WITH_APM=false
+for arg in "$@"; do
+  case "$arg" in
+    --ci) export CI=true ;;
+    --with-apm) WITH_APM=true ;;
+  esac
+done
+if [ "${CI:-}" = "true" ]; then
   echo "CI mode enabled"
+fi
+if [ "$WITH_APM" = true ]; then
+  echo "Will install apm after app deps (--with-apm)"
 fi
 
 echo ""
-echo "==> Chevron modern bootstrap"
+echo "==> Chevron modern bootstrap (host npm for app deps)"
 echo "    repo: $REPO_ROOT"
 echo ""
 
 # --- Step 1: stock verify + script dependencies (host Node) ------------------
-# Run bootstrap pieces via Node so we reuse Atom's install helpers.
 node <<'NODE'
 'use strict';
 const path = require('path');
@@ -64,187 +73,52 @@ installScriptDependencies(ci);
 console.log('Script dependencies installed.');
 NODE
 
-# Patch gyp that just landed under script/node_modules
 echo "Patching node-gyp (script) for Python 3.11+ (rU->r)..."
 chevron_patch_node_gyp "$REPO_ROOT/script"
 
-# --- Step 2: install apm under host Node; run Node-12-native postinstall -----
-# Host Node 20+ freezes process.config; apm's nested node-gyp 5 crashes with
-# "Cannot assign to read only property 'cflags'" when *host* Node runs the
-# install scripts. Skip scripts during npm install, then run apm's postinstall
-# pieces under its *bundled* Node 12 (download-node + npm rebuild).
-echo "Installing apm (scripts deferred; Node-12 postinstall after)…"
-node <<'NODE'
-'use strict';
-const installApm = require('./script/lib/install-apm');
-const ci = process.argv.includes('--ci') || process.env.CI === 'true';
-process.on('unhandledRejection', e => {
-  console.error(e.stack || e);
-  process.exit(1);
-});
-// Must ignore scripts: host Node 20+ / Python 3.12 cannot run apm's nested
-// node-gyp 5 (process.config freeze + open(..., 'rU') removed).
-installApm(ci, { ignoreScripts: true });
-NODE
-
-APM_PKG="$REPO_ROOT/apm/node_modules/atom-package-manager"
-APM_NODE="$APM_PKG/bin/node"
-APM_NPM="$APM_PKG/bin/npm"
-APM_GYP="$APM_PKG/node_modules/npm/node_modules/node-gyp/bin/node-gyp.js"
-ONIG="$APM_PKG/node_modules/oniguruma"
-# first-mate also nests oniguruma; git-utils/keytar may need rebuild under apm
-MODERN_GYP="$REPO_ROOT/script/node_modules/.bin/node-gyp"
-
-# Nested gyp under apm (used by postinstall rebuild with bundled Node)
-echo "Patching node-gyp (apm) for Python 3.11+ (rU->r)..."
-chevron_patch_node_gyp "$REPO_ROOT/apm"
-
-# npm 6 devDependencies-without-dependencies crash (npm/npm#19877)
-echo "Patching apm's bundled npm (update-package-json)…"
-node "$SCRIPT_DIR/lib/patch-apm-npm.js" "$REPO_ROOT"
-
-# Download apm's bundled Node 12 and rebuild its natives under that binary.
-# Equivalent to atom-package-manager's script/postinstall.sh, but ordered so
-# gyp is patched first and host Node never drives node-gyp 5.
-if [ -d "$APM_PKG" ]; then
-  # Node 12 never shipped darwin-arm64; download x64 and run under Rosetta.
-  echo "Patching apm download-node for Apple Silicon (if needed)…"
-  node "$SCRIPT_DIR/lib/patch-apm-download-node.js" "$REPO_ROOT"
-  if [ ! -x "$APM_NODE" ]; then
-    echo "Downloading apm bundled Node 12…"
-    (cd "$APM_PKG" && node script/download-node.js)
-  fi
-  # Rebuild apm natives for Node 12 ABI.
-  # Windows runners ship VS "18"/2026 which node-gyp 5–9 may not map; use
-  # node-gyp@11 via npx on Windows. POSIX keeps script/node_modules node-gyp.
-  rebuild_apm_native() {
-    local pkg_dir="$1"
-    local label="$2"
-    [ -d "$pkg_dir" ] || return 0
-    echo "Rebuilding apm native: $label"
-    local arch
-    arch="$(node -p "process.arch")"
-    if [ "${OS:-}" = "Windows_NT" ] || [[ "$(uname -s 2>/dev/null)" == MINGW* ]] || [[ "$(uname -s 2>/dev/null)" == MSYS* ]]; then
-      (cd "$pkg_dir" && npx --yes node-gyp@11 rebuild \
-        --target=12.14.1 \
-        --dist-url=https://nodejs.org/dist \
-        --arch="$arch") || return 1
-    elif [ -x "$MODERN_GYP" ]; then
-      (cd "$pkg_dir" && "$MODERN_GYP" rebuild \
-        --target=12.14.1 \
-        --dist-url=https://nodejs.org/dist \
-        --arch="$arch") || return 1
-    elif [ -f "$APM_GYP" ] && [ -x "$APM_NODE" ]; then
-      (cd "$pkg_dir" && "$APM_NODE" "$APM_GYP" rebuild) || return 1
-    else
-      return 1
-    fi
-  }
-
-  if [ -x "$APM_NODE" ] && [ -x "$APM_NPM" ]; then
-    echo "Rebuilding apm dependencies with bundled Node $($APM_NODE -p "process.version")..."
-    # Clear host Electron targeting so rebuilds target Node 12, not Electron.
-    (
-      unset npm_config_target npm_config_runtime npm_config_disturl \
-            npm_config_build_from_source npm_config_arch npm_config_node_gyp || true
-      export npm_config_python="${PYTHON:-}"
-      export NODE_GYP_FORCE_PYTHON="${PYTHON:-}"
-      cd "$APM_PKG" && ./bin/npm rebuild
-    ) || echo "apm npm rebuild failed; rebuilding natives with modern node-gyp..."
-
-    # Always ensure critical natives exist (git-utils is required for apm install).
-    GIT_UTILS="$APM_PKG/node_modules/git-utils"
-    KEYTAR_APM="$APM_PKG/node_modules/keytar"
-    for _pair in \
-      "$ONIG|oniguruma" \
-      "$GIT_UTILS|git-utils" \
-      "$KEYTAR_APM|keytar"; do
-      _dir="${_pair%%|*}"
-      _name="${_pair##*|}"
-      _node_bin=""
-      case "$_name" in
-        oniguruma) _node_bin="$_dir/build/Release/onig_scanner.node" ;;
-        git-utils) _node_bin="$_dir/build/Release/git.node" ;;
-        keytar) _node_bin="$_dir/build/Release/keytar.node" ;;
-      esac
-      if [ -n "$_node_bin" ] && [ ! -f "$_node_bin" ]; then
-        rebuild_apm_native "$_dir" "$_name" || \
-          echo "WARNING: failed to rebuild apm native $_name"
-      fi
-    done
-  else
-    echo "WARNING: apm bundled Node missing after download; apm may not run."
-  fi
-fi
-
-# --- Step 3: apm --version ---------------------------------------------------
-echo "Checking apm..."
-export ATOM_RESOURCE_PATH="$REPO_ROOT"
-if ! "$REPO_ROOT/apm/node_modules/atom-package-manager/bin/apm" --version; then
-  echo "error: apm --version failed (natives missing?)" >&2
-  exit 1
-fi
-# --- Step 4: root app dependencies (Electron headers via ATOM_ELECTRON_URL) --
-# Clear Node-12 targeting so apm uses Electron runtime from package.json
+# --- Step 2: root app dependencies via host npm (Phase 0) --------------------
 unset npm_config_target npm_config_runtime npm_config_disturl npm_config_build_from_source || true
-
-# npm 6 rewrites package-lock on install, reintroducing specs it cannot
-# itself parse next time (name-prefixed git requires, git:// urls).
-echo "Normalizing package-lock.json for npm 6…"
-node "$SCRIPT_DIR/lib/fix-package-lock.js" "$REPO_ROOT"
-
-echo "Installing application dependencies (apm install, scripts deferred)…"
-# Skip install scripts so nested registry superstring cannot fail the build
-# before we replace it with packages/superstring (Electron 14+ V8 patch).
 export ATOM_ELECTRON_URL="${ATOM_ELECTRON_URL:-https://www.electronjs.org/headers}"
-export npm_config_ignore_scripts=true
+export ATOM_RESOURCE_PATH="$REPO_ROOT"
+
 node <<'NODE'
 'use strict';
-const CONFIG = require('./script/config');
-const runApmInstall = require('./script/lib/run-apm-install');
+const installAppDependencies = require('./script/lib/install-app-dependencies');
 const ci = process.argv.includes('--ci') || process.env.CI === 'true';
 process.on('unhandledRejection', e => {
   console.error(e.stack || e);
   process.exit(1);
 });
-runApmInstall(CONFIG.repositoryRootPath, ci);
+installAppDependencies(ci, { ignoreScripts: true, legacyPeerDeps: true });
 NODE
-unset npm_config_ignore_scripts
 
 # shellcheck disable=SC1091
 . "$SCRIPT_DIR/lib/force-patched-superstring.sh"
 chevron_force_patched_superstring "$REPO_ROOT"
 
-# Electron 12+ forbids non-context-aware NODE_MODULE natives in the renderer.
 echo "Patching natives for NODE_MODULE_CONTEXT_AWARE…"
 node "$SCRIPT_DIR/lib/patch-natives-context-aware.js" "$REPO_ROOT"
 
-# keytar@4.x nan is too old for Electron 14 (GetContents → GetBackingStore)
 echo "Patching keytar nested nan for Electron 14+…"
 node "$SCRIPT_DIR/lib/patch-keytar-nan.js" "$REPO_ROOT"
 
-# spellchecker: MSVC rejects non-const ref to temporary wstring (VS 2019+)
 echo "Patching spellchecker for modern MSVC…"
 node "$SCRIPT_DIR/lib/patch-spellchecker-win.js" "$REPO_ROOT"
 
-# Lockfile pins other nested nan copies at 2.17, too old for V8 12 (E28)
 echo "Replacing outdated nested nan copies with root nan…"
 node "$SCRIPT_DIR/lib/patch-nested-nan.js" "$REPO_ROOT"
 
-# Bundled packages that still use remote for app paths / protocol client
 echo "Patching bundled packages for remote->IPC..."
 node "$SCRIPT_DIR/lib/patch-packages-remote-ipc.js" "$REPO_ROOT"
 
-# tree-view: modern fs.Stats own-keys are *Ms only; unguarded .getTime() throws
 echo "Patching tree-view Stats flattening for modern Node…"
 node "$SCRIPT_DIR/lib/patch-tree-view-stats.js" "$REPO_ROOT"
 
-# V8 10.x (Electron 21+) removed CreationContext(); patch old natives.
 echo "Patching natives for removed V8 APIs…"
 node "$SCRIPT_DIR/lib/patch-v8-api.js" "$REPO_ROOT"
 
-echo "Rebuilding native modules for Electron ${ELECTRON_VERSION:-}…"
-# Rebuild against Electron (not host Node). apm sets target from package.json.
+# --- Step 3: rebuild natives for Electron ------------------------------------
+echo "Rebuilding native modules for Electron…"
 export ATOM_RESOURCE_PATH="$REPO_ROOT"
 export ATOM_ELECTRON_URL="${ATOM_ELECTRON_URL:-https://www.electronjs.org/headers}"
 ELECTRON_VERSION="$(node -p "require('./package.json').electronVersion")"
@@ -255,20 +129,13 @@ export npm_config_runtime=electron
 export npm_config_build_from_source=true
 export npm_config_arch="${npm_config_arch:-$(node -p "process.arch")}"
 
-# Electron 20+ headers reject node-gyp < 9 (config.gypi guard), which rules
-# out apm's bundled node-gyp 5. Use script/node_modules' node-gyp instead.
 MODERN_GYP="$REPO_ROOT/script/node_modules/.bin/node-gyp"
 rebuild_package_modern() {
   local pkg="$1"
   local arch
   local attempt
   arch="$(node -p "process.arch")"
-  # Always target Electron runtime so natives link against Electron's V8,
-  # not host Node (Windows fails with unresolved GetBackingStore otherwise).
   if [ "${OS:-}" = "Windows_NT" ] || [[ "$(uname -s 2>/dev/null)" == MINGW* ]] || [[ "$(uname -s 2>/dev/null)" == MSYS* ]]; then
-    # node-gyp@11 understands VS 2022/2025/2026 year codes.
-    # Windows: `node-gyp rebuild` cleans first and can hit EBUSY if MSBuild
-    # still holds handles from the preceding npm rebuild — retry + force-rm.
     for attempt in 1 2 3; do
       if (cd "$pkg" && npx --yes node-gyp@11 rebuild \
         --target="$ELECTRON_VERSION" \
@@ -291,25 +158,21 @@ rebuild_package_modern() {
   fi
 }
 
-if [ "$ELECTRON_MAJOR" -ge 20 ]; then
-  echo "Electron $ELECTRON_VERSION: apm's node-gyp is too old; npm rebuild + modern gyp"
-  (cd "$REPO_ROOT" && npm rebuild 2>&1) || \
-    echo "npm rebuild failed; will force per-package Electron rebuilds..."
-else
-  if "$REPO_ROOT/apm/node_modules/atom-package-manager/bin/apm" rebuild 2>/dev/null; then
-    echo "apm rebuild finished."
-  else
-    echo "apm rebuild unavailable; npm rebuild with target=$ELECTRON_VERSION"
-    (cd "$REPO_ROOT" && npm rebuild 2>&1) || \
-      echo "npm rebuild failed; will force per-package Electron rebuilds..."
-  fi
-fi
+echo "Electron $ELECTRON_VERSION: host npm rebuild + modern gyp force list"
+# Do not pass --ignore-scripts here: install used ignore-scripts, so nothing
+# has .node yet. npm_config_runtime=electron is set above.
+(cd "$REPO_ROOT" && npm rebuild 2>&1) || \
+  echo "npm rebuild failed; will force per-package Electron rebuilds..."
 
-# Always rebuild critical natives with modern node-gyp + --runtime=electron.
-# npm rebuild alone can leave superstring linked against host Node on Windows
-# (unresolved GetBackingStore) or skip packages that failed mid-run.
 echo "Force-rebuilding critical natives for Electron $ELECTRON_VERSION..."
-for _pkg in superstring tree-sitter '@atom/watcher' keytar spellchecker; do
+# keyboard-layout is required at runtime (smoke fails without keyboard-layout-manager.node).
+# ctags / fs-admin / oniguruma are also app natives not covered by a partial list.
+for _pkg in \
+  superstring tree-sitter \
+  '@atom/watcher' '@atom/nsfw' '@atom/fuzzy-native' \
+  keytar spellchecker pathwatcher git-utils scrollbar-style nslog \
+  keyboard-layout ctags fs-admin oniguruma
+do
   _dir="$REPO_ROOT/node_modules/$_pkg"
   if [ -d "$_dir" ]; then
     echo "  rebuild $_pkg..."
@@ -318,8 +181,6 @@ for _pkg in superstring tree-sitter '@atom/watcher' keytar spellchecker; do
   fi
 done
 
-# Tree-sitter language bindings (language-js/css/ts/… grammars). Missing
-# .node files surface as fatal "Failed to load a language-* package grammar".
 echo "Force-rebuilding tree-sitter language bindings..."
 while IFS= read -r _gyp; do
   [ -z "$_gyp" ] && continue
@@ -329,21 +190,9 @@ while IFS= read -r _gyp; do
     echo "WARNING: rebuild failed for $_dir"
 done < <(find "$REPO_ROOT/node_modules" -path '*/tree-sitter-*/binding.gyp' 2>/dev/null | sort -u)
 
-# Ensure keytar.node exists (github package). Full npm rebuild may skip if
-# prebuild metadata is present without a usable binary.
 if [ ! -f "$REPO_ROOT/node_modules/keytar/build/Release/keytar.node" ]; then
   echo "Rebuilding keytar for Electron $ELECTRON_VERSION…"
-  if [ -x "$MODERN_GYP" ]; then
-    rebuild_package_modern "$REPO_ROOT/node_modules/keytar" || true
-  elif [ -x "$REPO_ROOT/node_modules/.bin/electron-rebuild" ]; then
-    "$REPO_ROOT/node_modules/.bin/electron-rebuild" -v "$ELECTRON_VERSION" -f -w keytar || true
-  else
-    (cd "$REPO_ROOT/node_modules/keytar" && npm run build --if-present 2>/dev/null) || \
-    (cd "$REPO_ROOT/node_modules/keytar" && node-gyp rebuild \
-      --target="$ELECTRON_VERSION" \
-      --dist-url="$ATOM_ELECTRON_URL" \
-      --arch="$(node -p "process.arch")" || true)
-  fi
+  rebuild_package_modern "$REPO_ROOT/node_modules/keytar" || true
 fi
 if [ -f "$REPO_ROOT/node_modules/keytar/build/Release/keytar.node" ]; then
   echo "keytar.node present."
@@ -351,9 +200,6 @@ else
   echo "WARNING: keytar.node still missing — github package password storage will fail."
 fi
 
-# dugite's postinstall downloads an embedded git; apm install used --ignore-scripts
-# so this may still be missing (breaks github package + can stress the renderer).
-# dugite only ships win/mac/linux-x64 embeds — not linux-arm64.
 DUGITE_GIT="$REPO_ROOT/node_modules/dugite/git/bin/git"
 if [ ! -x "$DUGITE_GIT" ]; then
   echo "Downloading dugite embedded git…"
@@ -372,14 +218,11 @@ if [ ! -x "$DUGITE_GIT" ] && command -v git >/dev/null 2>&1; then
   fi
 fi
 if [ -x "$DUGITE_GIT" ] || [ -L "$DUGITE_GIT" ]; then
-  echo "dugite git present: $DUGITE_GIT -> $(readlink -f "$DUGITE_GIT" 2>/dev/null || echo ok)"
+  echo "dugite git present: $DUGITE_GIT"
 else
   echo "WARNING: dugite git still missing at $DUGITE_GIT"
 fi
 
-# Critical: nested package copies (e.g. text-buffer/node_modules/superstring)
-# were made *before* Electron rebuild and lack build/Release/*.node. Without
-# this resync, packaged Linux boots die with "Cannot find module superstring.node".
 echo "Re-syncing nested natives from rebuilt root packages…"
 chevron_resync_nested_built_natives "$REPO_ROOT"
 
@@ -393,6 +236,48 @@ if [ ! -f "$REPO_ROOT/node_modules/text-buffer/node_modules/superstring/build/Re
   exit 1
 fi
 
+# --- Step 4 (optional): apm for product packaging / local package CLI --------
+if [ "$WITH_APM" = true ]; then
+  echo "Installing apm (--with-apm; scripts deferred)…"
+  node <<'NODE'
+'use strict';
+const installApm = require('./script/lib/install-apm');
+const ci = process.argv.includes('--ci') || process.env.CI === 'true';
+process.on('unhandledRejection', e => {
+  console.error(e.stack || e);
+  process.exit(1);
+});
+installApm(ci, { ignoreScripts: true });
+NODE
+
+  APM_PKG="$REPO_ROOT/apm/node_modules/atom-package-manager"
+  APM_NODE="$APM_PKG/bin/node"
+  APM_NPM="$APM_PKG/bin/npm"
+  MODERN_GYP="$REPO_ROOT/script/node_modules/.bin/node-gyp"
+  ONIG="$APM_PKG/node_modules/oniguruma"
+
+  chevron_patch_node_gyp "$REPO_ROOT/apm"
+  node "$SCRIPT_DIR/lib/patch-apm-npm.js" "$REPO_ROOT"
+  node "$SCRIPT_DIR/lib/patch-apm-download-node.js" "$REPO_ROOT"
+  if [ -d "$APM_PKG" ] && [ ! -x "$APM_NODE" ]; then
+    echo "Downloading apm bundled Node 12…"
+    (cd "$APM_PKG" && node script/download-node.js) || true
+  fi
+  if [ -x "$APM_NODE" ] && [ -x "$APM_NPM" ]; then
+    (
+      unset npm_config_target npm_config_runtime npm_config_disturl \
+            npm_config_build_from_source npm_config_arch npm_config_node_gyp || true
+      export npm_config_python="${PYTHON:-}"
+      cd "$APM_PKG" && ./bin/npm rebuild
+    ) || echo "apm npm rebuild failed (continuing)"
+  fi
+  if [ -x "$APM_PKG/bin/apm" ]; then
+    "$APM_PKG/bin/apm" --version || echo "WARNING: apm --version failed"
+  fi
+else
+  echo "Skipping apm install (default). Use --with-apm for packaging/dev CLI until cpm Phase 1."
+fi
+
 # --- Step 5: fingerprint -----------------------------------------------------
 node <<'NODE'
 'use strict';
@@ -401,6 +286,6 @@ console.log('Dependencies fingerprint written.');
 NODE
 
 echo ""
-echo "==> Modern bootstrap complete."
+echo "==> Modern bootstrap complete (host npm app deps)."
 echo "    Build with:  ./script/with-modern-env ./script/build --no-bootstrap"
 echo ""
