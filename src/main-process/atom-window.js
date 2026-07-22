@@ -13,6 +13,30 @@ const StartupTime = require('../startup-time');
 
 const ICON_PATH = path.resolve(__dirname, '..', '..', 'resources', 'atom.png');
 
+// Guest <webview> may load package previews (markdown, images). Keep schemes
+// tight: no javascript:, no atom: (editor protocol), no file escalation via
+// unexpected schemes. file: stays for local markdown assets.
+const GUEST_NAVIGATION_SCHEMES = new Set([
+  'http:',
+  'https:',
+  'data:',
+  'blob:',
+  'about:',
+  'file:'
+]);
+
+function isAllowedGuestNavigationUrl(navigationUrl) {
+  if (typeof navigationUrl !== 'string' || navigationUrl.length === 0) {
+    return false;
+  }
+  try {
+    const parsed = new URL(navigationUrl);
+    return GUEST_NAVIGATION_SCHEMES.has(parsed.protocol);
+  } catch (error) {
+    return false;
+  }
+}
+
 let includeShellLoadTime = true;
 let nextId = 0;
 
@@ -285,7 +309,7 @@ module.exports = class AtomWindow extends EventEmitter {
     // webview attributes — main overwrites webPreferences on attach.
     this.browserWindow.webContents.on(
       'will-attach-webview',
-      (_event, webPreferences, _params) => {
+      (_event, webPreferences, params) => {
         delete webPreferences.preload;
         delete webPreferences.preloadURL;
         webPreferences.nodeIntegration = false;
@@ -296,6 +320,19 @@ module.exports = class AtomWindow extends EventEmitter {
         webPreferences.webSecurity = true;
         webPreferences.allowRunningInsecureContent = false;
         webPreferences.experimentalFeatures = false;
+        // Isolate guest storage/cookies from the editor session when possible.
+        if (params && typeof params === 'object' && !params.partition) {
+          params.partition = 'chevron-guest';
+        }
+      }
+    );
+
+    // Phase N4: after attach, lock down the guest WebContents itself
+    // (permissions, window.open, dangerous navigations).
+    this.browserWindow.webContents.on(
+      'did-attach-webview',
+      (_event, guestWebContents) => {
+        this.configureGuestWebContents(guestWebContents);
       }
     );
 
@@ -360,6 +397,51 @@ module.exports = class AtomWindow extends EventEmitter {
     // Spec window's web view should always have focus
     if (this.isSpec)
       this.browserWindow.on('blur', () => this.browserWindow.focusOnWebView());
+  }
+
+  /**
+   * Phase N4: harden a guest <webview> WebContents after attach.
+   * Guests may load package previews (markdown, etc.) over http(s)/file/data.
+   */
+  configureGuestWebContents(guestWebContents) {
+    if (!guestWebContents || guestWebContents.isDestroyed()) return;
+
+    guestWebContents.setWindowOpenHandler(({ url: guestUrl }) => {
+      console.warn(
+        `AtomWindow: blocked window.open from guest webview (${String(
+          guestUrl
+        )})`
+      );
+      return { action: 'deny' };
+    });
+
+    guestWebContents.on('will-navigate', (event, navigationUrl) => {
+      if (!isAllowedGuestNavigationUrl(navigationUrl)) {
+        console.warn(
+          `AtomWindow: blocked guest navigation to ${String(navigationUrl)}`
+        );
+        event.preventDefault();
+      }
+    });
+
+    guestWebContents.on('will-redirect', (event, navigationUrl) => {
+      if (!isAllowedGuestNavigationUrl(navigationUrl)) {
+        console.warn(
+          `AtomWindow: blocked guest redirect to ${String(navigationUrl)}`
+        );
+        event.preventDefault();
+      }
+    });
+
+    // Deny all Chromium permission prompts inside guests.
+    const guestSession = guestWebContents.session;
+    guestSession.setPermissionRequestHandler((_wc, permission, callback) => {
+      console.warn(
+        `AtomWindow: denied guest permission request "${permission}"`
+      );
+      callback(false);
+    });
+    guestSession.setPermissionCheckHandler(() => false);
   }
 
   async prepareToUnload() {
