@@ -90,6 +90,26 @@ module.exports = function start(resourcePath, devResourcePath, startTime) {
   // NB: This prevents Win10 from showing dupe items in the taskbar.
   app.setAppUserModelId(appUserModelId);
 
+  // Linux: match packaged/installed .desktop StartupWMClass so shells
+  // (especially Wayland) can associate the window with the Chevron icon.
+  if (process.platform === 'linux' && typeof app.setDesktopName === 'function') {
+    const desktopName =
+      releaseChannel === 'stable' ? 'chevron.desktop' : `chevron-${releaseChannel}.desktop`;
+    try {
+      app.setDesktopName(desktopName);
+    } catch (_) {
+      /* older Electron */
+    }
+  }
+  if (process.platform === 'linux' && typeof app.setName === 'function') {
+    try {
+      // productName from package.json; keep simple to avoid load-order deps.
+      app.setName('Chevron');
+    } catch (_) {
+      /* ignore */
+    }
+  }
+
   function addPathToOpen(event, pathToOpen) {
     event.preventDefault();
     args.pathsToOpen.push(pathToOpen);

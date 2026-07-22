@@ -127,19 +127,20 @@ module.exports = function(packagedAppPath, installDir) {
         'png'
       );
       fs.readdirSync(appIconsPath).forEach(imageName => {
-        if (/\.png$/.test(imageName)) {
-          const size = path.basename(imageName, '.png');
-          const iconPath = path.join(appIconsPath, imageName);
-          fs.copySync(
-            iconPath,
-            path.join(
-              baseIconThemeDirPath,
-              `${size}x${size}`,
-              'apps',
-              fullIconName
-            )
-          );
-        }
+        if (!/\.png$/.test(imageName)) return;
+        const size = path.basename(imageName, '.png');
+        // Only numeric size names map to hicolor dirs (skip atom.png etc.).
+        if (!/^\d+$/.test(size)) return;
+        const iconPath = path.join(appIconsPath, imageName);
+        fs.copySync(
+          iconPath,
+          path.join(
+            baseIconThemeDirPath,
+            `${size}x${size}`,
+            'apps',
+            fullIconName
+          )
+        );
       });
 
       console.log(`Updating icon cache for "${baseIconThemeDirPath}"`);

@@ -26,4 +26,16 @@ In-app SVG wordmarks live in:
 
 ## Regenerating icons
 
-Master raster (session or design export) → resize with Pillow + `iconutil` (see CI notes / local script). Prefer updating `png/1024.png` then rebuilding `.icns`/`.ico` rather than hand-editing each size.
+Prefer the checked-in generator (true transparent corners, no JPEG white fringe):
+
+```bash
+python3 script/generate-app-icons.py   # requires Pillow; optional ImageMagick for .icns
+```
+
+Do **not** reintroduce `chevron-icon-source.jpg` as the master — it is RGB-only with white corners. PNGs must keep alpha `0` outside the rounded mark.
+
+## Linux taskbar note
+
+Wayland shells often ignore `BrowserWindow` icons and use the installed
+`.desktop` + hicolor theme entry (`Icon=chevron`). Install via the package or
+`script` install path so `StartupWMClass=Chevron` matches.

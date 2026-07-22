@@ -60,22 +60,36 @@ module.exports = function() {
     path.join(CONFIG.intermediateAppPath, 'node_modules')
   );
 
-  const iconPng = path.join(
+  // Window/taskbar icons: ship multi-size PNGs with true alpha. Prefer 256 as
+  // the legacy atom.png/chevron.png name (1024 alone is a poor dock icon).
+  const channelPngDir = path.join(
     CONFIG.repositoryRootPath,
     'resources',
     'app-icons',
     CONFIG.channel,
-    'png',
-    '1024.png'
+    'png'
   );
-  fs.copySync(
-    iconPng,
-    path.join(CONFIG.intermediateAppPath, 'resources', 'atom.png')
-  );
-  fs.copySync(
-    iconPng,
-    path.join(CONFIG.intermediateAppPath, 'resources', 'chevron.png')
-  );
+  const appResourcesDir = path.join(CONFIG.intermediateAppPath, 'resources');
+  const appIconsDir = path.join(appResourcesDir, 'icons');
+  fs.mkdirpSync(appIconsDir);
+
+  const iconSizes = [16, 24, 32, 48, 64, 128, 256, 512, 1024];
+  for (const size of iconSizes) {
+    const src = path.join(channelPngDir, `${size}.png`);
+    if (fs.existsSync(src)) {
+      fs.copySync(src, path.join(appIconsDir, `${size}.png`));
+    }
+  }
+
+  const primaryIcon = [
+    path.join(channelPngDir, '256.png'),
+    path.join(channelPngDir, '128.png'),
+    path.join(channelPngDir, '1024.png')
+  ].find(p => fs.existsSync(p));
+  if (primaryIcon) {
+    fs.copySync(primaryIcon, path.join(appResourcesDir, 'atom.png'));
+    fs.copySync(primaryIcon, path.join(appResourcesDir, 'chevron.png'));
+  }
 };
 
 function materializeExternalSymlinks(rootDir) {

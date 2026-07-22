@@ -14,42 +14,97 @@ const StartupTime = require('../startup-time');
 
 // Linux window/taskbar icon. Prefer real filesystem paths (asar.unpacked or
 // packaged app-root copies) because nativeImage.createFromPath does not read
-// asar archives.
-function resolveAppIconPath() {
-  const candidates = [];
+// asar archives. Prefer taskbar-friendly sizes (256/128); 1024 alone often
+// fails to show in GTK/Wayland docks.
+const LINUX_ICON_SIZES = [256, 128, 64, 48, 32, 16, 512, 1024];
+
+function iconSearchRoots(resourcePath) {
+  const roots = [];
   if (process.resourcesPath) {
-    candidates.push(
-      path.join(
-        process.resourcesPath,
-        'app.asar.unpacked',
-        'resources',
-        'atom.png'
-      ),
-      path.join(
-        process.resourcesPath,
-        'app.asar.unpacked',
-        'resources',
-        'chevron.png'
-      ),
-      path.join(process.resourcesPath, '..', 'atom.png'),
-      path.join(process.resourcesPath, '..', 'chevron.png')
+    roots.push(
+      path.join(process.resourcesPath, 'app.asar.unpacked', 'resources'),
+      path.join(process.resourcesPath, 'app.asar.unpacked', 'resources', 'icons'),
+      path.join(process.resourcesPath, '..'),
+      path.join(process.resourcesPath, 'icons')
     );
   }
-  candidates.push(
-    path.resolve(__dirname, '..', '..', 'resources', 'atom.png'),
-    path.resolve(__dirname, '..', '..', 'resources', 'chevron.png')
-  );
-  for (const candidate of candidates) {
-    try {
-      if (candidate && fs.existsSync(candidate)) return candidate;
-    } catch (_) {
-      /* ignore */
-    }
+  if (resourcePath) {
+    roots.push(
+      path.join(resourcePath, 'resources'),
+      path.join(resourcePath, 'resources', 'icons')
+    );
   }
-  return candidates[candidates.length - 2];
+  // Repo / intermediate layout (dev + copy-assets).
+  const appRoot = path.resolve(__dirname, '..', '..');
+  roots.push(
+    path.join(appRoot, 'resources'),
+    path.join(appRoot, 'resources', 'icons'),
+    path.join(appRoot, 'resources', 'app-icons', 'stable', 'png')
+  );
+  return roots;
 }
 
-const ICON_PATH = resolveAppIconPath();
+function resolveAppIconPath(resourcePath) {
+  const roots = iconSearchRoots(resourcePath);
+  const names = [];
+  for (const size of LINUX_ICON_SIZES) {
+    names.push(`${size}.png`);
+  }
+  names.push('atom.png', 'chevron.png');
+  for (const name of names) {
+    for (const root of roots) {
+      const candidate = path.join(root, name);
+      try {
+        if (fs.existsSync(candidate)) return candidate;
+      } catch (_) {
+        /* ignore */
+      }
+    }
+  }
+  return null;
+}
+
+function loadLinuxAppIcon(resourcePath) {
+  const roots = iconSearchRoots(resourcePath);
+  const image = nativeImage.createEmpty();
+  let added = 0;
+
+  for (const size of LINUX_ICON_SIZES) {
+    let buffer = null;
+    for (const root of roots) {
+      const candidate = path.join(root, `${size}.png`);
+      try {
+        if (fs.existsSync(candidate)) {
+          buffer = fs.readFileSync(candidate);
+          break;
+        }
+      } catch (_) {
+        /* ignore */
+      }
+    }
+    if (!buffer) continue;
+    try {
+      image.addRepresentation({
+        width: size,
+        height: size,
+        buffer,
+        scaleFactor: size >= 256 ? 2.0 : 1.0
+      });
+      added += 1;
+    } catch (_) {
+      /* ignore bad representation */
+    }
+  }
+
+  if (added > 0 && !image.isEmpty()) return image;
+
+  const fallbackPath = resolveAppIconPath(resourcePath);
+  if (fallbackPath) {
+    const fallback = nativeImage.createFromPath(fallbackPath);
+    if (!fallback.isEmpty()) return fallback;
+  }
+  return null;
+}
 
 // Guest <webview> may load package previews (markdown, images). Keep schemes
 // tight: no javascript:, no atom: (editor protocol), no file escalation via
@@ -141,8 +196,13 @@ module.exports = class AtomWindow extends EventEmitter {
 
     // Don't set icon on Windows so the exe's ico will be used as window and
     // taskbar's icon. See https://github.com/atom/atom/issues/4811 for more.
-    if (process.platform === 'linux')
-      options.icon = nativeImage.createFromPath(ICON_PATH);
+    // Linux: multi-size nativeImage (single 1024 path often yields empty icon
+    // in taskbars; Wayland still prefers a installed .desktop + hicolor icons).
+    let linuxIcon = null;
+    if (process.platform === 'linux') {
+      linuxIcon = loadLinuxAppIcon(this.resourcePath);
+      if (linuxIcon) options.icon = linuxIcon;
+    }
     if (this.shouldAddCustomTitleBar()) options.titleBarStyle = 'hidden';
     if (this.shouldAddCustomInsetTitleBar())
       options.titleBarStyle = 'hiddenInset';
@@ -151,6 +211,24 @@ module.exports = class AtomWindow extends EventEmitter {
     const BrowserWindowConstructor =
       settings.browserWindowConstructor || BrowserWindow;
     this.browserWindow = new BrowserWindowConstructor(options);
+
+    if (linuxIcon && !this.browserWindow.isDestroyed()) {
+      try {
+        this.browserWindow.setIcon(linuxIcon);
+      } catch (_) {
+        /* ignore */
+      }
+      // Re-apply when shown — some WMs only pick up the icon after map.
+      this.browserWindow.once('ready-to-show', () => {
+        if (!this.browserWindow.isDestroyed()) {
+          try {
+            this.browserWindow.setIcon(linuxIcon);
+          } catch (_) {
+            /* ignore */
+          }
+        }
+      });
+    }
 
     Object.defineProperty(this.browserWindow, 'loadSettingsJSON', {
       get: () =>
