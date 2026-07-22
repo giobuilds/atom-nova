@@ -590,13 +590,25 @@ patchFile('node_modules/github/lib/controllers/root-controller.js', t => {
 });
 
 patchFile('node_modules/github/lib/worker-manager.js', t => {
-  if (t.includes('atom-get-web-contents-id-sync')) return t;
   let out = t;
+  // Always fix bare `remote` before considering the file done.
   out = out.replace(
     /return remote\.getCurrentWebContents\(\)\.id;/,
     "return require('electron').ipcRenderer.sendSync('atom-get-web-contents-id-sync');"
   );
-  if (!/\bremote\./.test(out)) {
+  // BrowserWindow from remote-compat; never leave a bare `remote` binding.
+  out = out.replace(
+    /const \{BrowserWindow\} = remote;/,
+    "const {BrowserWindow} = require('electron').remote;"
+  );
+  // Drop named remote import only when no remaining bare remote identifier.
+  if (
+    !/\bremote\b/.test(
+      out
+        .replace(/require\(['"]electron['"]\)\.remote/g, '')
+        .replace(/from ['"]electron['"]/g, '')
+    )
+  ) {
     out = out.replace(
       /import \{remote, ipcRenderer as ipc\} from 'electron';/,
       "import {ipcRenderer as ipc} from 'electron';"
