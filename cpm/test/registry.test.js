@@ -6,6 +6,7 @@ const {
   isBarePackageName,
   parseNameVersion,
   normalizeSearchHit,
+  toApmPackageShape,
   getRegistryBaseUrl,
   DEFAULT_REGISTRY_URL
 } = require('../lib/registry');
@@ -59,5 +60,27 @@ describe('cpm registry helpers', () => {
     assert.strictEqual(getRegistryBaseUrl(), 'https://example.test/reg');
     if (prev === undefined) delete process.env.CPM_REGISTRY_URL;
     else process.env.CPM_REGISTRY_URL = prev;
+  });
+
+  it('flattens Pulsar payloads for settings-view package cards', () => {
+    const pack = toApmPackageShape({
+      name: 'atom-clock',
+      downloads: 100,
+      stargazers_count: 5,
+      releases: { latest: '0.1.18' },
+      repository: { url: 'https://github.com/b3by/atom-clock', type: 'git' },
+      metadata: {
+        name: 'atom-clock',
+        version: '0.1.18',
+        description: 'Clock',
+        engines: { atom: '>=1.0.0' }
+      }
+    });
+    assert.strictEqual(pack.name, 'atom-clock');
+    assert.strictEqual(pack.version, '0.1.18');
+    assert.strictEqual(pack.description, 'Clock');
+    assert.strictEqual(pack.repository, 'https://github.com/b3by/atom-clock');
+    assert.strictEqual(pack.downloads, 100);
+    assert.deepStrictEqual(pack.engines, { atom: '>=1.0.0' });
   });
 });

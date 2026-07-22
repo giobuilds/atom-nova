@@ -56,7 +56,9 @@ Packages still land under `…/packages` in the config home (`~/.atom` by defaul
 
 ### Settings UI
 
-Install Package and incompatible-package rebuild still call **`getApmPath()`**, which resolves to **cpm** (or its `apm` shim) in packaged builds.
+- **Search / featured / package metadata** hit the **Pulsar** registry (`https://api.pulsar-edit.dev/api/…`), not dead `atom.io` (bootstrap patches `settings-view`).
+- **Install / uninstall / rebuild** spawn **`getApmPath()`** → **cpm** (or its `apm` shim).
+- Browse the same corpus at [packages.pulsar-edit.dev](https://packages.pulsar-edit.dev).
 
 ---
 

@@ -43,10 +43,49 @@ async function searchPackages(query, options = {}) {
   const page = options.page || 1;
   const base = getRegistryBaseUrl();
   const q = encodeURIComponent(query || '');
-  const url = `${base}/api/packages/search?q=${q}&page=${page}`;
+  let url = `${base}/api/packages/search?q=${q}&page=${page}`;
+  if (options.themes) url += '&filter=theme';
+  else if (options.packages) url += '&filter=package';
   const data = await fetchJson(url);
   const list = Array.isArray(data) ? data : data.packages || data.hits || [];
   return list.map(normalizeSearchHit);
+}
+
+/**
+ * Featured packages or themes (settings-view / apm featured --json).
+ * Returns apm-shaped metadata objects suitable for package cards.
+ */
+async function getFeaturedPackages(options = {}) {
+  const base = getRegistryBaseUrl();
+  const path = options.themes ? 'themes/featured' : 'packages/featured';
+  const data = await fetchJson(`${base}/api/${path}`);
+  const list = Array.isArray(data) ? data : data.packages || [];
+  return list.map(toApmPackageShape);
+}
+
+/**
+ * Flatten Pulsar package payload into the shape settings-view expects
+ * (metadata fields at top level + readme/downloads/stars).
+ */
+function toApmPackageShape(raw) {
+  const meta = raw.metadata || {};
+  const repo = raw.repository || meta.repository || null;
+  const repoUrl =
+    repo && typeof repo === 'object' ? repo.url || null : repo || null;
+  return Object.assign({}, meta, {
+    name: raw.name || meta.name,
+    description: meta.description || raw.description || '',
+    version:
+      meta.version ||
+      (raw.releases && raw.releases.latest) ||
+      null,
+    readme: raw.readme || meta.readme || '',
+    downloads: Number(raw.downloads) || 0,
+    stargazers_count: Number(raw.stargazers_count) || 0,
+    repository: repoUrl || repo,
+    releases: raw.releases || {},
+    engines: meta.engines || null
+  });
 }
 
 /**
@@ -243,10 +282,13 @@ function parseNameVersion(spec) {
 module.exports = {
   DEFAULT_REGISTRY_URL,
   getRegistryBaseUrl,
+  fetchJson,
   searchPackages,
+  getFeaturedPackages,
   getPackage,
   resolveInstallSpec,
   isBarePackageName,
   parseNameVersion,
-  normalizeSearchHit
+  normalizeSearchHit,
+  toApmPackageShape
 };
