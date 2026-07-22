@@ -81,16 +81,12 @@ patchFile('node_modules/settings-view/lib/uri-handler-panel.js', t => {
     );
 });
 
+// Registry + Install UI: atom.io is dead → Pulsar (also re-run after coffee transpile in script/build)
+require('./patch-settings-view-registry')(repoRoot);
+
+// atom-io-client: cache path IPC + search repository shape (registry URL patched above)
 patchFile('node_modules/settings-view/lib/atom-io-client.coffee', t => {
   let out = t;
-
-  // Phase 4 / registry: atom.io is dead (redirects to sunset blog). Use Pulsar.
-  if (out.includes("https://atom.io/api/")) {
-    out = out.replace(
-      /@baseURL \?= 'https:\/\/atom\.io\/api\/'/,
-      "@baseURL ?= (process.env.CPM_REGISTRY_URL || process.env.ATOM_PACKAGE_REGISTRY || 'https://api.pulsar-edit.dev').replace(/\\/+$/, '') + '/api/'"
-    );
-  }
 
   if (!out.includes('atom-app-get-path-sync')) {
     out = out.replace(
@@ -109,7 +105,6 @@ patchFile('node_modules/settings-view/lib/atom-io-client.coffee', t => {
     );
   }
 
-  // Drop unused remote import if no longer referenced
   if (!/remote\./.test(out)) {
     out = out.replace(/\{remote\} = require 'electron'\n/, '');
   }
