@@ -78,7 +78,8 @@ Docs: `docs/cpm-design.md`, `docs/cpm-cutover.md`, `docs/cpm-prebuilds.md`.
 | **N2.3 tree-view bulk fs → main IPC** | **Done** (`fs-via-main` + `register-fs-ipc`) |
 | **N2.4 github residual remote** | **Done** (path/webContents/menus; workers IPC) |
 | **N3.1 preload inventory + session perms + require audit** | **Done** |
-| N3 allowlist enforcement / N4–N5 sandbox | **Next** |
+| **N3.2 opt-in community require restrict** | **Done** (`CHEVRON_RESTRICT_PACKAGE_REQUIRES=1`) |
+| N3 default-on allowlist / N4–N5 sandbox | **Next** |
 
 ---
 
@@ -88,15 +89,16 @@ Docs: `docs/cpm-design.md`, `docs/cpm-cutover.md`, `docs/cpm-prebuilds.md`.
 
 Authoritative plan: **`docs/security-phase-n.md`**. N2 notes: **`docs/security-phase-n2.md`**.
 
-Suggested order after N3.1:
+Suggested order after N3.2:
 
-1. ~~N2.x + N3.1~~ **done**  
-2. **N3 enforcement research** — optional allowlist behind flag; never break T2 by default  
-3. **N4** — guest CSP / navigation polish if needed (webview already sandboxed)  
-4. **N5 / Phase S** — sandbox guests first; core editor sandbox blocked on natives (`src/preload-natives.js`)  
-5. Optional: move Task crawl / rg to utility process; shrink `remote-compat` further  
+1. ~~N2.x + N3.1 + N3.2~~ **done**  
+2. **N4** — guest CSP / navigation polish if needed (webview already sandboxed)  
+3. **N5 / Phase S** — sandbox guests first; core editor sandbox blocked on natives  
+4. Optional: default-on restrict after ecosystem data; Task crawl → utility process; shrink `remote-compat`  
 
-**Dev audit:** `CHEVRON_AUDIT_PACKAGE_REQUIRES=1` before launch logs privileged package requires.
+**Dev policy env:**  
+- `CHEVRON_AUDIT_PACKAGE_REQUIRES=1` — log  
+- `CHEVRON_RESTRICT_PACKAGE_REQUIRES=1` — block community privileged requires
 
 ### Optional hygiene
 

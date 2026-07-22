@@ -1,6 +1,6 @@
 # Security Phase N3 — preload privilege map + guest content
 
-**Status:** N3.1 shipped (inventory, package policy, session permission lockdown, optional require audit)  
+**Status:** N3.1 + **N3.2** shipped (opt-in community require restrict)  
 **Date:** 2026-07-16 · **Update:** 2026-07-22  
 **Depends on:** Phase I (contextIsolation + preload boot), Phase N2 (package shell / fs IPC).
 
@@ -60,14 +60,17 @@ Electron’s sandboxed preload cannot `require()` arbitrary `.node` binaries the
 | Deliverable | Location |
 |-------------|----------|
 | Natives / privileged module inventory | `src/preload-natives.js` |
-| Optional require audit | `src/package-require-audit.js` (env `CHEVRON_AUDIT_PACKAGE_REQUIRES=1`) |
+| Optional require audit | `src/package-require-audit.js` (`CHEVRON_AUDIT_PACKAGE_REQUIRES=1`) |
+| Opt-in community require restrict | same module (`CHEVRON_RESTRICT_PACKAGE_REQUIRES=1`) — **N3.2** |
 | Wired from preload | `static/preload.js` |
 | Session permission deny-list | `AtomWindow.handleEvents` (`setPermissionRequestHandler` / `setPermissionCheckHandler`) |
 | Package author policy | [package-node-policy.md](./package-node-policy.md) |
 
 **Permission policy (editor session):** deny media, geolocation, notifications, midi, pointerLock, fullscreen, openExternal, serial/hid/usb, display-capture, idle-detection, window-management, clipboard-sanitized-write. Allow `clipboard-read` for paste. Unknown permissions default **deny**.
 
-**Require audit:** when enabled, wraps `Module.prototype.require` and logs one warning per package path + privileged module (`fs`, `child_process`, `electron`, …). Does **not** block.
+**Require audit:** logs one warning per package path + privileged module. Does **not** block.
+
+**Require restrict (N3.2):** when enabled, privileged requires from **community** package paths throw `CHEVRON_PRIVILEGED_REQUIRE_BLOCKED`. Core + bundled (app.asar / monorepo packages) are never blocked. Default remains unrestricted.
 
 ## Package tiers (summary)
 

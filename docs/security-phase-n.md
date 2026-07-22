@@ -1,6 +1,6 @@
 # Security Phase N — narrow package Node surface
 
-**Status:** active epic — N0–N2.4 done; **N3.1 done** (inventory, policy, session permissions, require audit); N3 allowlist enforcement later  
+**Status:** active epic — N0–N2.4 done; **N3.1–N3.2 done** (inventory, policy, session permissions, audit, opt-in community require restrict); default-on allowlist later  
 **Depends on:** Phase R (remote removal) and Phase I (contextIsolation + preload boot) — both done.  
 **Follows:** `docs/remote-ipc-inventory.md` §4 / §9.  
 **Handoff:** `GROK.md`
@@ -116,8 +116,9 @@ Suggested order: **settings-view paths** → **fuzzy-finder spawn** → **tree-v
 | fuzzy-finder UI path probes | **Done N2.2** — path kind / realpath |
 | tree-view bulk fs-plus | **Done N2.3** — `fs-via-main` + `register-fs-ipc` |
 | github residual electron/remote | **Done N2.4** — app path, webContents id, menus; workers already IPC |
-| N3.1 inventory + session perms + require audit | **Done** — `preload-natives.js`, `package-require-audit.js`, permission handlers, [package-node-policy.md](./package-node-policy.md) |
-| N3 allowlist enforcement | Later (must not break T2 overnight) |
+| N3.1 inventory + session perms + require audit | **Done** |
+| N3.2 opt-in community require restrict | **Done** — `CHEVRON_RESTRICT_PACKAGE_REQUIRES=1` |
+| N3 default-on allowlist | Later (must not break T2 overnight) |
 
 ### N3 — Shrink preload default privilege
 
@@ -125,7 +126,8 @@ Suggested order: **settings-view paths** → **fuzzy-finder spawn** → **tree-v
 2. ~~contextBridge to page~~ **explicit non-goal for now** (page stays empty; no bridge)  
 3. ~~Stop expanding package Node as a feature~~ **policy** ([package-node-policy.md](./package-node-policy.md))  
 4. Optional require inventory: `CHEVRON_AUDIT_PACKAGE_REQUIRES=1`  
-5. Long-term: package host with narrower **enforced** require allowlist (research; may need custom loader)
+5. ~~Opt-in community restrict~~ **done N3.2** (`CHEVRON_RESTRICT_PACKAGE_REQUIRES=1`)  
+6. Long-term: default-on allowlist / package host (research; may need custom loader)
 
 ### N4 — Guest content
 

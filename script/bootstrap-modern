@@ -127,6 +127,9 @@ node "$SCRIPT_DIR/lib/patch-tree-view-stats.js" "$REPO_ROOT"
 echo "Patching natives for removed V8 APIs…"
 node "$SCRIPT_DIR/lib/patch-v8-api.js" "$REPO_ROOT"
 
+echo "Patching oniguruma gyp for GCC 14+…"
+node "$SCRIPT_DIR/lib/patch-oniguruma-gyp.js" "$REPO_ROOT"
+
 # --- Step 3: rebuild natives for Electron ------------------------------------
 echo "Rebuilding native modules for Electron…"
 export ATOM_RESOURCE_PATH="$REPO_ROOT"
