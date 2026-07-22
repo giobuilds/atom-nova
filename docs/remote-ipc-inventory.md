@@ -336,8 +336,8 @@ Packages: document `atomNova` (or keep `atom` APIs that already abstract Electro
 2. ~~**IPC trust boundary hardening**~~ **done** (scheme filter, drop webContents `executeJavaScript` IPC, lock worker prefs).  
 3. ~~**Packaged github worker assets**~~ **done** — asar unpack includes `github/lib/**` for `file://` workers.  
 4. **Phase N** (active): narrow package Node surface — see **`docs/security-phase-n.md`**.  
-   - N2–N2.4 done; **N3.1** done (natives inventory, package Node policy, session permission deny-list, optional require audit).  
-   - Next: N3 allowlist enforcement research / N4 guest CSP polish / N5 sandbox path.  
+   - N2–N2.4 + **N3.1–N3.2** done (through opt-in community require restrict).  
+   - Next: N4 guest CSP polish / N5 sandbox path / optional default-on restrict.  
 5. Phase S later: sandbox guest content; core editor sandbox blocked on in-process natives.
 
 ---

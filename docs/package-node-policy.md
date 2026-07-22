@@ -41,14 +41,24 @@ Today (0.4.x): T1/T2 still share the **preload Node world** for compatibility. P
 - Assume `require('fs')` / `child_process` / `net` will keep working in future releases
 - Use the Atom preload as a webview preload or enable Node for guest content
 
-## Auditing privileged requires (developers)
+## Auditing / restricting privileged requires (developers)
 
 ```bash
-CHEVRON_AUDIT_PACKAGE_REQUIRES=1 ./script/with-modern-env out/Chevron.app/Contents/MacOS/Chevron
-# or Linux packaged binary / --dev resource-path
+# Log only (inventory)
+CHEVRON_AUDIT_PACKAGE_REQUIRES=1 ./out/Chevron-linux-x64/chevron --no-sandbox
+
+# Opt-in enforcement for community packages only (N3.2)
+CHEVRON_RESTRICT_PACKAGE_REQUIRES=1 ./out/Chevron-linux-x64/chevron --no-sandbox
 ```
 
-When enabled, the preload logs **one warning per package+module** when package code requires a privileged module (`fs`, `child_process`, `electron`, …). This does **not** block loads; it is inventory tooling for Phase N.
+| Env | Effect |
+|-----|--------|
+| `CHEVRON_AUDIT_PACKAGE_REQUIRES=1` | Log **one warning per caller path + module** for privileged requires |
+| `CHEVRON_RESTRICT_PACKAGE_REQUIRES=1` | **Throw** on privileged require from **community** packages (`~/.atom/packages`, `~/.chevron/packages`). Core + bundled (app.asar) still allowed |
+
+Privileged module set: see `src/preload-natives.js` (`fs`, `child_process`, `electron`, `net`, …).
+
+**Default is off** — community packages keep working until authors migrate. Restrict is for dogfooding and CI experiments, not the default product path.
 
 ## Install / rebuild
 

@@ -12,7 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 
 - **Phase N2.2–N2.4:** fuzzy-finder path probes, tree-view bulk fs via main IPC, github residual remote cleanup
-- **Phase N3.1:** preload natives inventory (`src/preload-natives.js`); package Node policy ([docs/package-node-policy.md](docs/package-node-policy.md)); editor session permission deny-list; optional `CHEVRON_AUDIT_PACKAGE_REQUIRES=1` require audit
+- **Phase N3.1:** preload natives inventory; package Node policy; editor session permission deny-list; optional require audit
+- **Phase N3.2:** opt-in `CHEVRON_RESTRICT_PACKAGE_REQUIRES=1` blocks privileged `require`s from community packages only (core/bundled exempt)
+- **bootstrap:** GCC 14+ oniguruma build fix (`patch-oniguruma-gyp.js`)
 
 ## [0.4.0] — 2026-07-22
 
