@@ -82,16 +82,76 @@ patchFile('node_modules/settings-view/lib/uri-handler-panel.js', t => {
 });
 
 patchFile('node_modules/settings-view/lib/atom-io-client.coffee', t => {
-  if (t.includes('atom-app-get-path-sync')) return t;
-  let out = t.replace(
-    /@cachePath \?= path\.join\(remote\.app\.getPath\('userData'\), 'Cache', 'settings-view'\)/,
-    "@cachePath ?= path.join(require('electron').ipcRenderer.sendSync('atom-app-get-path-sync', 'userData'), 'Cache', 'settings-view')"
-  );
+  let out = t;
+
+  // Phase 4 / registry: atom.io is dead (redirects to sunset blog). Use Pulsar.
+  if (out.includes("https://atom.io/api/")) {
+    out = out.replace(
+      /@baseURL \?= 'https:\/\/atom\.io\/api\/'/,
+      "@baseURL ?= (process.env.CPM_REGISTRY_URL || process.env.ATOM_PACKAGE_REGISTRY || 'https://api.pulsar-edit.dev').replace(/\\/+$/, '') + '/api/'"
+    );
+  }
+
+  if (!out.includes('atom-app-get-path-sync')) {
+    out = out.replace(
+      /@cachePath \?= path\.join\(remote\.app\.getPath\('userData'\), 'Cache', 'settings-view'\)/,
+      "@cachePath ?= path.join(require('electron').ipcRenderer.sendSync('atom-app-get-path-sync', 'userData'), 'Cache', 'settings-view')"
+    );
+  }
+
+  // repository may be a string URL on some payloads; settings-view expected .url
+  if (!out.includes('repositoryUrl =')) {
+    out = out.replace(
+      /\.map \(\{readme, metadata, downloads, stargazers_count, repository\}\) ->\n\s+Object\.assign metadata, \{readme, downloads, stargazers_count, repository: repository\.url\}/,
+      `.map ({readme, metadata, downloads, stargazers_count, repository}) ->
+                    repositoryUrl = if repository?.url? then repository.url else repository
+                    Object.assign metadata, {readme, downloads, stargazers_count, repository: repositoryUrl}`
+    );
+  }
+
   // Drop unused remote import if no longer referenced
   if (!/remote\./.test(out)) {
     out = out.replace(/\{remote\} = require 'electron'\n/, '');
   }
   return out;
+});
+
+// Settings Install panel: user-facing links → Pulsar package explorer
+patchFile('node_modules/settings-view/lib/install-panel.js', t => {
+  if (t.includes('packages.pulsar-edit.dev')) return t;
+  return t
+    .replace(
+      /this\.atomIoURL = 'https:\/\/atom\.io\/packages'/g,
+      "this.atomIoURL = 'https://packages.pulsar-edit.dev/packages'"
+    )
+    .replace(
+      /this\.atomIoURL = 'https:\/\/atom\.io\/themes'/g,
+      "this.atomIoURL = 'https://packages.pulsar-edit.dev/themes'"
+    )
+    .replace(/>atom\.io<\/a>/, '>packages.pulsar-edit.dev</a>')
+    .replace(/Packages are published to /, 'Packages are listed on ')
+    .replace(/Themes are published to /g, 'Themes are listed on ');
+});
+
+patchFile('node_modules/settings-view/lib/package-card.js', t => {
+  if (t.includes('packages.pulsar-edit.dev')) return t;
+  return t
+    .replace(
+      /https:\/\/atom\.io\/users\/\$\{owner\}/g,
+      'https://github.com/${owner}'
+    )
+    .replace(
+      /https:\/\/atom\.io\/\$\{packageType\}\/\$\{this\.pack\.name\}/g,
+      'https://packages.pulsar-edit.dev/${packageType}/${this.pack.name}'
+    );
+});
+
+patchFile('node_modules/settings-view/lib/package-detail-view.js', t => {
+  if (t.includes('packages.pulsar-edit.dev')) return t;
+  return t.replace(
+    /https:\/\/atom\.io\/packages\/\$\{this\.pack\.name\}/g,
+    'https://packages.pulsar-edit.dev/packages/${this.pack.name}'
+  );
 });
 
 patchFile('node_modules/atom-pathspec/index.js', t => {

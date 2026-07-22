@@ -9,6 +9,7 @@ const { uninstallPackage } = require('./commands/uninstall');
 const { linkPackage, unlinkPackage } = require('./commands/link');
 const { searchCommand } = require('./commands/search');
 const { viewCommand } = require('./commands/view');
+const { featuredCommand } = require('./commands/featured');
 
 async function main(argv = process.argv) {
   const program = new Command();
@@ -102,6 +103,21 @@ async function main(argv = process.argv) {
     .option('--json', 'JSON output')
     .action(async (name, opts) => {
       process.exitCode = await viewCommand(name, opts);
+    });
+
+  program
+    .command('featured')
+    .description(
+      'List featured packages/themes (settings-view / apm featured --json)'
+    )
+    .option('--json', 'JSON output')
+    .option('--themes', 'Featured themes instead of packages')
+    .option(
+      '--compatible <version>',
+      'Filter by engines.atom against this product version'
+    )
+    .action(async opts => {
+      process.exitCode = await featuredCommand(opts);
     });
 
   // Editor contract: argv often `… rebuild --no-color` with no package name.

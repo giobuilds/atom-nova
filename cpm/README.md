@@ -32,6 +32,7 @@ export ATOM_HOME=/tmp/cpm-test   # optional dual home
 ./cpm/bin/cpm install git+https://github.com/atom/language-toml.git#master
 ./cpm/bin/cpm search linter
 ./cpm/bin/cpm view linter
+./cpm/bin/cpm featured --json         # Settings → Install featured list
 ./cpm/bin/cpm install linter          # registry → tarball
 ./cpm/bin/cpm list
 ./cpm/bin/cpm uninstall cpm-smoke-pure-js
@@ -42,13 +43,17 @@ Lifecycle scripts are **off** by default (`--allow-scripts` to enable).
 
 ### Registry
 
-Default: **Pulsar** package API (`https://api.pulsar-edit.dev`).
+Default: **Pulsar** package API (`https://api.pulsar-edit.dev`) — community Atom-compatible packages.
 
 ```bash
 export CPM_REGISTRY_URL=https://api.pulsar-edit.dev   # optional override
 ./cpm/bin/cpm search language
 ./cpm/bin/cpm view language-toml --json
+./cpm/bin/cpm featured --json
+./cpm/bin/cpm featured --themes --json
 ```
+
+**In-app Settings** uses the same Pulsar base URL (patched into `settings-view` at bootstrap). Classic `atom.io` is dead and is no longer used.
 
 ### Prebuilds
 
