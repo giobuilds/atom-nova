@@ -1,6 +1,6 @@
 # Security Phase N — narrow package Node surface
 
-**Status:** active epic — N0–N2.4 done; **N3.1–N3.2 done** (inventory, policy, session permissions, audit, opt-in community require restrict); default-on allowlist later  
+**Status:** active epic — N0–N3.2 done; **N4.1 done** (guest nav/permissions); N5 / Phase S next for editor sandbox
 **Depends on:** Phase R (remote removal) and Phase I (contextIsolation + preload boot) — both done.  
 **Follows:** `docs/remote-ipc-inventory.md` §4 / §9.  
 **Handoff:** `GROK.md`
@@ -118,6 +118,7 @@ Suggested order: **settings-view paths** → **fuzzy-finder spawn** → **tree-v
 | github residual electron/remote | **Done N2.4** — app path, webContents id, menus; workers already IPC |
 | N3.1 inventory + session perms + require audit | **Done** |
 | N3.2 opt-in community require restrict | **Done** — `CHEVRON_RESTRICT_PACKAGE_REQUIRES=1` |
+| N4.1 guest WebContents nav + permissions | **Done** — see [security-phase-n4.md](./security-phase-n4.md) |
 | N3 default-on allowlist | Later (must not break T2 overnight) |
 
 ### N3 — Shrink preload default privilege
@@ -131,9 +132,10 @@ Suggested order: **settings-view paths** → **fuzzy-finder spawn** → **tree-v
 
 ### N4 — Guest content
 
-1. Audit `webviewTag: true` and package webviews.
-2. Ensure guest webPreferences: no Node, no shared preload secrets.
-3. CSP / navigation handlers where practical.
+1. ~~Audit `webviewTag: true` and package webviews~~ — tag kept; guests forced safe  
+2. ~~Ensure guest webPreferences: no Node, no shared preload~~ **done N3**  
+3. ~~Navigation / permissions on guest WebContents~~ **done N4.1** (`did-attach-webview`)  
+4. Optional later: stricter CSP injection for remote-only guests
 
 ### N5 — Toward Phase S (sandbox)
 

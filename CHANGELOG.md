@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Phase N2.2–N2.4:** fuzzy-finder path probes, tree-view bulk fs via main IPC, github residual remote cleanup
 - **Phase N3.1:** preload natives inventory; package Node policy; editor session permission deny-list; optional require audit
 - **Phase N3.2:** opt-in `CHEVRON_RESTRICT_PACKAGE_REQUIRES=1` blocks privileged `require`s from community packages only (core/bundled exempt)
+- **Phase N4.1:** guest `<webview>` WebContents — deny window.open, restrict navigation schemes, deny permissions, default `chevron-guest` partition
+- **Bundled package ownership (Option B):** pin Tier-1 packages to `builtbygio` forks (same SHAs): `settings-view`, `tree-view`, `fuzzy-finder`, `github`
 - **bootstrap:** GCC 14+ oniguruma build fix (`patch-oniguruma-gyp.js`)
 
 ## [0.4.0] — 2026-07-22
