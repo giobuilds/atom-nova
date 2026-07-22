@@ -41,6 +41,12 @@ module.exports = function start(resourcePath, devResourcePath, startTime) {
 
   app.commandLine.appendSwitch('enable-experimental-web-platform-features');
 
+  // Linux: set WM_CLASS / Wayland app_id so shells can match chevron.desktop
+  // (generic binary icon otherwise when launched without a desktop entry).
+  if (process.platform === 'linux') {
+    app.commandLine.appendSwitch('class', 'Chevron');
+  }
+
   const args = parseCommandLine(process.argv.slice(1));
 
   // This must happen after parseCommandLine() because yargs uses console.log
@@ -89,6 +95,26 @@ module.exports = function start(resourcePath, devResourcePath, startTime) {
 
   // NB: This prevents Win10 from showing dupe items in the taskbar.
   app.setAppUserModelId(appUserModelId);
+
+  // Linux: match packaged/installed .desktop StartupWMClass so shells
+  // (especially Wayland) can associate the window with the Chevron icon.
+  if (process.platform === 'linux' && typeof app.setDesktopName === 'function') {
+    const desktopName =
+      releaseChannel === 'stable' ? 'chevron.desktop' : `chevron-${releaseChannel}.desktop`;
+    try {
+      app.setDesktopName(desktopName);
+    } catch (_) {
+      /* older Electron */
+    }
+  }
+  if (process.platform === 'linux' && typeof app.setName === 'function') {
+    try {
+      // productName from package.json; keep simple to avoid load-order deps.
+      app.setName('Chevron');
+    } catch (_) {
+      /* ignore */
+    }
+  }
 
   function addPathToOpen(event, pathToOpen) {
     event.preventDefault();

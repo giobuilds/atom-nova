@@ -179,21 +179,36 @@ function copyNonASARResources(packagedAppPath, bundledResourcesPath) {
       path.join(bundledResourcesPath, 'file.icns')
     );
   } else if (process.platform === 'linux') {
-    const iconSrc = path.join(
+    const channelPngDir = path.join(
       CONFIG.repositoryRootPath,
       'resources',
       'app-icons',
       CONFIG.channel,
-      'png',
-      '1024.png'
+      'png'
     );
-    // Channel desktop name + legacy atom.png for any leftover packaging paths.
-    fs.copySync(iconSrc, path.join(packagedAppPath, 'atom.png'));
-    fs.copySync(iconSrc, path.join(packagedAppPath, 'chevron.png'));
-    fs.copySync(
-      iconSrc,
-      path.join(packagedAppPath, `${CONFIG.channelName}.png`)
-    );
+    const primaryIcon = [
+      path.join(channelPngDir, '256.png'),
+      path.join(channelPngDir, '128.png'),
+      path.join(channelPngDir, '1024.png')
+    ].find(p => fs.existsSync(p));
+    if (primaryIcon) {
+      // Channel desktop name + legacy atom.png for any leftover packaging paths.
+      fs.copySync(primaryIcon, path.join(packagedAppPath, 'atom.png'));
+      fs.copySync(primaryIcon, path.join(packagedAppPath, 'chevron.png'));
+      fs.copySync(
+        primaryIcon,
+        path.join(packagedAppPath, `${CONFIG.channelName}.png`)
+      );
+    }
+    // Multi-size icons for BrowserWindow / taskbar (unpacked next to asar).
+    const iconsOut = path.join(bundledResourcesPath, 'icons');
+    fs.mkdirpSync(iconsOut);
+    for (const size of [16, 24, 32, 48, 64, 128, 256, 512, 1024]) {
+      const src = path.join(channelPngDir, `${size}.png`);
+      if (fs.existsSync(src)) {
+        fs.copySync(src, path.join(iconsOut, `${size}.png`));
+      }
+    }
   } else if (process.platform === 'win32') {
     [
       'atom.sh',
@@ -306,7 +321,8 @@ function buildAsarUnpackGlobExpression() {
     path.join('**', 'node_modules', 'vscode-ripgrep', 'bin', '**'),
     path.join('**', 'resources', 'atom.png'),
     // Window/taskbar icons (Linux createFromPath needs real files, not asar).
-    path.join('**', 'resources', 'chevron.png')
+    path.join('**', 'resources', 'chevron.png'),
+    path.join('**', 'resources', 'icons', '**')
   ];
 
   return `{${unpack.join(',')}}`;
