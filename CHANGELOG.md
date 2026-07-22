@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- **Phase N2.2:** fuzzy-finder UI-process path probes (`isDirectory` / `isFile` / `isSymbolicLink` / `realpath`) go through main-process IPC (`atom-fs-path-kind-sync`, `atom-fs-realpath-sync`); path crawl + ripgrep remain in `atom.Task`
+
 ## [0.4.0] — 2026-07-22
 
 Package manager cutover and Security Phase N resume. Electron remains **43.1.0**.

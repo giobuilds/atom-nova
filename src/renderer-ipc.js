@@ -188,6 +188,27 @@ module.exports = {
     return ipcRenderer.invoke('atom-shell-move-item-to-trash', fullPath);
   },
 
+  // Phase N2.2: path probes via main (absolute paths only).
+  pathKind(fullPath) {
+    return ipcRenderer.sendSync('atom-fs-path-kind-sync', fullPath);
+  },
+
+  isDirectorySync(fullPath) {
+    return this.pathKind(fullPath) === 'directory';
+  },
+
+  isFileSync(fullPath) {
+    return this.pathKind(fullPath) === 'file';
+  },
+
+  isSymbolicLinkSync(fullPath) {
+    return this.pathKind(fullPath) === 'symlink';
+  },
+
+  realpathSync(fullPath) {
+    return ipcRenderer.sendSync('atom-fs-realpath-sync', fullPath);
+  },
+
   beep() {
     return ipcRenderer.sendSync('atom-shell-beep-sync');
   },

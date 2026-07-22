@@ -45,11 +45,31 @@ Avatar images no longer use renderer `fs-plus` / `glob` under `userData`.
 
 Patch: `script/lib/patch-packages-remote-ipc.js` rewrites `atom-io-client.coffee` (idempotent; marker `atom-settings-view-cache-ensure`).
 
+## N2.2 — fuzzy-finder UI path probes (done post-0.4.0)
+
+| Channel | Behavior |
+|---------|----------|
+| `atom-fs-path-kind-sync` | Absolute path → `lstat`; returns `file` / `directory` / `symlink` / `other` / `null` |
+| `atom-fs-realpath-sync` | Absolute path → `realpathSync` or `null` |
+
+Renderer: `applicationDelegate.isDirectorySync` / `isFileSync` / `isSymbolicLinkSync` / `realpathSync`.
+
+Patches (`patch-packages-remote-ipc.js`):
+
+| File | Change |
+|------|--------|
+| `fuzzy-finder-view.js` | `fs.isDirectorySync` → applicationDelegate |
+| `git-status-view.js` | `fs.isFileSync` → applicationDelegate |
+| `default-file-icons.js` | `fs.isSymbolicLinkSync` → applicationDelegate (extension helpers stay on fs-plus; pure string) |
+| `path-loader.js` | `fs.realpathSync` on project roots → applicationDelegate |
+
+**Still in Task process (by design, not UI):** `load-paths-handler.js` — recursive crawl + `child_process.spawn` of ripgrep. That is Atom `Task` isolation, not the editor preload package world.
+
 ## Deferred (later N2 / N3)
 
-- fuzzy-finder `child_process.spawn` (ripgrep) and path crawl `fs` — crawl already in `atom.Task`; audit UI-process `fs-plus`
-- tree-view bulk `fs-plus` for file ops UI
+- tree-view bulk `fs-plus` for file ops UI (add/copy/move dialogs, directory listing)
 - Full package require allowlist (N3)
+- Moving Task crawl / rg spawn to main/utility process (large; optional later)
 
 ## Verify
 

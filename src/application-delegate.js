@@ -365,6 +365,27 @@ module.exports = class ApplicationDelegate {
     return rendererIpc.moveItemToTrash(fullPath);
   }
 
+  // Phase N2.2: confined path probes (main-process lstat / realpath).
+  pathKind(fullPath) {
+    return rendererIpc.pathKind(fullPath);
+  }
+
+  isDirectorySync(fullPath) {
+    return rendererIpc.isDirectorySync(fullPath);
+  }
+
+  isFileSync(fullPath) {
+    return rendererIpc.isFileSync(fullPath);
+  }
+
+  isSymbolicLinkSync(fullPath) {
+    return rendererIpc.isSymbolicLinkSync(fullPath);
+  }
+
+  realpathSync(fullPath) {
+    return rendererIpc.realpathSync(fullPath);
+  }
+
   checkForUpdate() {
     return ipcRenderer.send('command', 'application:check-for-update');
   }

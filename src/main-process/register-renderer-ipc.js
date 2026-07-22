@@ -355,6 +355,39 @@ module.exports = function registerRendererIpc(atomApplication) {
     }
   });
 
+  // --- Phase N2.2: confined path probes for bundled packages (fuzzy-finder) ---
+  // Returns 'file' | 'directory' | 'symlink' | 'other' | null (missing/blocked).
+  // Uses lstat so symlinks are not followed for kind detection.
+  ipcMain.on('atom-fs-path-kind-sync', (event, fullPath) => {
+    if (!isSafeAbsolutePath(fullPath)) {
+      console.warn(`atom-fs-path-kind-sync: blocked path ${String(fullPath)}`);
+      event.returnValue = null;
+      return;
+    }
+    try {
+      const st = fs.lstatSync(fullPath);
+      if (st.isSymbolicLink()) event.returnValue = 'symlink';
+      else if (st.isDirectory()) event.returnValue = 'directory';
+      else if (st.isFile()) event.returnValue = 'file';
+      else event.returnValue = 'other';
+    } catch (error) {
+      event.returnValue = null;
+    }
+  });
+
+  ipcMain.on('atom-fs-realpath-sync', (event, fullPath) => {
+    if (!isSafeAbsolutePath(fullPath)) {
+      console.warn(`atom-fs-realpath-sync: blocked path ${String(fullPath)}`);
+      event.returnValue = null;
+      return;
+    }
+    try {
+      event.returnValue = fs.realpathSync(fullPath);
+    } catch (error) {
+      event.returnValue = null;
+    }
+  });
+
   ipcMain.on('atom-shell-beep-sync', event => {
     shell.beep();
     event.returnValue = true;
