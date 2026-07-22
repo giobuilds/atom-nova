@@ -11,27 +11,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **cpm Phase 4:** product no longer bundles classic apm (Node 12); packaging/CI use **cpm** only; `apm` command remains a **shim → cpm**
-- **cpm Phase 3:** prefer native **prebuilds** before source rebuild (`chevron.prebuilds` URLs, `prebuild-install`, then `@electron/rebuild`); `--force-source`; author docs + example workflow
-- **cpm Phase 2:** registry client (`search`, `view`, install-by-name via Pulsar API; `CPM_REGISTRY_URL`)
-- **cpm Phase 1 (initial):** `@chevron/cpm` under `cpm/` — Electron-as-Node CLI (`list`, `doctor`, `install`, `uninstall`, `link`, `rebuild --no-color`)
-  - Launchers `cpm` / `apm` shims; product packaging copies `app/cpm`; `getApmPath()` prefers cpm
-  - Shell installer installs `cpm` + `apm` shim; Windows `resources/win/cpm.cmd` + Squirrel PATH
-  - `engines.atom` / `engines.chevron` checks on install (`--strict` to fail); compile-cache policy (b) runtime-only
-  - Install smoke: local path + git + registry extract; Atom-compat engines (1.65.0)
-  - Phase 1 closed: rebuild contract tests; §5.6 npm-prefix fallback struck; packaging ensures cpm `node_modules`
+- **cpm package manager (Phases 0–4 complete)** — cutover guide: [docs/cpm-cutover.md](docs/cpm-cutover.md)
+  - **Phase 4:** product no longer bundles classic apm (Node 12); packaging/CI use **cpm** only; `apm` remains a **shim → cpm**
+  - **Phase 3:** prefer native **prebuilds** before source rebuild (`chevron.prebuilds`, `prebuild-install`, then `@electron/rebuild`); `--force-source`; [docs/cpm-prebuilds.md](docs/cpm-prebuilds.md)
+  - **Phase 2:** registry client (`search`, `view`, install-by-name via Pulsar API; `CPM_REGISTRY_URL`)
+  - **Phase 1:** `@chevron/cpm` under `cpm/` — Electron-as-Node CLI (`list`, `doctor`, `install`, `uninstall`, `link`, `rebuild --no-color`)
+    - Launchers `cpm` / `apm` shims; product packaging copies `app/cpm`; `getApmPath()` prefers cpm
+    - Shell installer installs `cpm` + `apm` shim; Windows `resources/win/cpm.cmd` + Squirrel PATH
+    - `engines.atom` / `engines.chevron` checks on install; compile-cache policy (b) runtime-only
+    - Install smoke + rebuild contract tests
 
 ### Changed
 
 - **Phase 0 bootstrap:** root app `node_modules` via **host npm** (not apm/Node 12)
   - `package-lock.json` → lockfileVersion 3; root `.npmrc` with `legacy-peer-deps=true`
-  - `script/bootstrap-modern` uses `install-app-dependencies.js`; optional `--with-apm` for packaging/dev
+  - `script/bootstrap-modern` uses `install-app-dependencies.js`; `--with-apm` is debug-only (not CI/product)
   - Bundled `packageDependencies` stay root `dependencies` (design §13.5 Option A)
-- **First-run / onboarding polish** (`packages/welcome`):
-  - Removed Atom sunsetting and telemetry consent views (no user path to either)
-  - Welcome: works/WIP panel, project + shell-command CTAs, clearer two-tab sequencing
-  - Guide: removed Teletype card; honest package-install note (apm/registry limits until cpm)
-  - Config-home migrate prompt deferred (WONTFIX; silent dual-support remains)
+- **Secondary tooling** no longer invokes classic apm for monorepo installs (`script/test`, `update-dependency`, `run-apm-install` → host npm; `getApmBinPath` → monorepo cpm shim)
+- **First-run / onboarding** (`packages/welcome`): Welcome/Guide copy documents **cpm** (and `apm` shim); removed Atom sunset/telemetry consent; Teletype card removed
+- **User migration (cutover):** prefer `cpm …`; existing `apm …` scripts keep working via shim; Settings installer uses cpm; registry defaults to Pulsar — see [docs/cpm-cutover.md](docs/cpm-cutover.md)
 
 ## [0.3.0] — 2026-07-18
 

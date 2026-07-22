@@ -32,7 +32,7 @@ export ATOM_HOME=/tmp/cpm-test   # optional dual home
 ./cpm/bin/cpm install git+https://github.com/atom/language-toml.git#master
 ./cpm/bin/cpm search linter
 ./cpm/bin/cpm view linter
-./cpm/bin/cpm install linter          # registry → tarball (Phase 2)
+./cpm/bin/cpm install linter          # registry → tarball
 ./cpm/bin/cpm list
 ./cpm/bin/cpm uninstall cpm-smoke-pure-js
 ```
@@ -40,7 +40,7 @@ export ATOM_HOME=/tmp/cpm-test   # optional dual home
 Lifecycle scripts are **off** by default (`--allow-scripts` to enable).  
 `engines.atom` is checked against Atom-compat **1.65.0** (dual-support); use `--strict` to fail on mismatch.
 
-### Registry (Phase 2)
+### Registry
 
 Default: **Pulsar** package API (`https://api.pulsar-edit.dev`).
 
@@ -50,7 +50,7 @@ export CPM_REGISTRY_URL=https://api.pulsar-edit.dev   # optional override
 ./cpm/bin/cpm view language-toml --json
 ```
 
-### Prebuilds (Phase 3)
+### Prebuilds
 
 Native packages: cpm tries prebuilds before compiling.
 
@@ -61,6 +61,8 @@ Native packages: cpm tries prebuilds before compiling.
 
 Author guide: [docs/cpm-prebuilds.md](../docs/cpm-prebuilds.md).
 
-## Design
+## Design and cutover
 
-See [docs/cpm-design.md](../docs/cpm-design.md).
+- Design (authoritative): [docs/cpm-design.md](../docs/cpm-design.md)  
+- User/author cutover: [docs/cpm-cutover.md](../docs/cpm-cutover.md)  
+- Phases 0–4 are **complete** on `master`.

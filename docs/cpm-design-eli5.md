@@ -13,20 +13,19 @@ cpm is **not** a new workbench. Packages still run inside Chevron the Atom way (
 
 ## Why care? (the short pain story)
 
-Today the shop still has a very old helper called **apm** (Atom Package Manager). Think of it as a **12-year-old apprentice** that:
+The shop **used to** have a very old helper called **apm** (Atom Package Manager) — a **12-year-old apprentice** that:
 
-- Speaks only an **old dialect** (Node 12 + npm 6)  
-- Needs special patches on Apple Silicon  
-- Often **cannot rebuild** modern native tools against Electron 43  
+- Spoke only an **old dialect** (Node 12 + npm 6)  
+- Needed special patches on Apple Silicon  
+- Often **could not rebuild** modern native tools against Electron 43  
 
-So the workshop has two toolkits:
+| Toolkit | Who uses it | Status |
+|---------|-------------|--------|
+| **Modern tools** | Building Chevron itself | Host npm + modern rebuild |
+| **cpm** | Installing community packages | **Ships now** (Electron-as-Node) |
+| **`apm` name** | Old scripts / muscle memory | **Shim that calls cpm** |
 
-| Toolkit | Who uses it | Problem |
-|---------|-------------|---------|
-| **Modern tools** | Building Chevron itself | Fine |
-| **apm’s old Node** | Installing community packages | Fragile, outdated, painful |
-
-**cpm’s job:** fire the old apprentice for day-to-day installs, and use the **same machine the editor already runs on**.
+**cpm’s job (done):** fire the old apprentice for day-to-day installs, and use the **same machine the editor already runs on**.
 
 ---
 
@@ -116,9 +115,9 @@ packages/     ← the installed community packages (the shelf)
 | `cpm list` | Look at the shelf |
 | `cpm rebuild` | Re-cut native keys for **this** Electron |
 | `cpm doctor` | Check paths, Electron-as-Node, headers, policy |
-| `cpm search` | Ask a catalog (later / optional backend) |
+| `cpm search` | Ask the package catalog (Pulsar API by default) |
 
-The Settings UI and “incompatible packages” rebuild button still call “the apm path” — that path will **point at cpm**.
+The Settings UI and “incompatible packages” rebuild button still call “the apm path” — that path **points at cpm**.
 
 ---
 

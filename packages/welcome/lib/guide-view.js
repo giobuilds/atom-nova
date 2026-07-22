@@ -123,19 +123,19 @@ export default class GuideView {
                 </p>
                 <p>
                   Packages extend Chevron using the Atom package API (
-                  <code>global.atom</code>, <code>engines.atom</code>,{' '}
-                  <code>apm</code>).
+                  <code>global.atom</code>, <code>engines.atom</code>). Install
+                  with <code>cpm</code> (or <code>apm</code>, a shim to cpm).
                 </p>
                 <p className="welcome-note">
-                  <strong>Honest status:</strong> the Settings installer still
-                  uses the legacy apm path. Public registry search may be
-                  limited or broken until the cpm package manager lands. Prefer
-                  installing from a local path or git URL when the catalog
-                  fails. See the{' '}
+                  <strong>Package manager:</strong> Settings and the CLI use{' '}
+                  <code>cpm</code> (Electron-as-Node). Registry search defaults
+                  to the Pulsar package API; override with{' '}
+                  <code>CPM_REGISTRY_URL</code>. You can also install from a
+                  local path or git URL. See{' '}
                   <a href="https://github.com/builtbygio/chevron">
-                    Chevron repository
+                    builtbygio/chevron
                   </a>{' '}
-                  for current guidance.
+                  docs for <code>cpm</code> guidance.
                 </p>
                 <p>
                   <button

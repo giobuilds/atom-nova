@@ -4,7 +4,7 @@
  * Patch classic NODE_MODULE() natives to NODE_MODULE_CONTEXT_AWARE so they can
  * load in Electron 12+ renderer processes (process model reuse).
  *
- * Idempotent. Safe to re-run after npm/apm installs that restore sources.
+ * Idempotent. Safe to re-run after npm installs that restore sources.
  *
  * Usage: node script/lib/patch-natives-context-aware.js [repoRoot]
  */

@@ -3,7 +3,7 @@
   "main": "./lib/update-package-dependencies",
   "version": "0.13.1",
   "private": true,
-  "description": "Runs `apm install` for the current project",
+  "description": "Runs package-manager install (cpm / apm shim) for the current project",
   "repository": "https://github.com/atom/atom",
   "license": "MIT",
   "engines": {

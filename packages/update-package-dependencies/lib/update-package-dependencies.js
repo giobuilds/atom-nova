@@ -25,7 +25,7 @@ module.exports = {
   },
 
   update() {
-    if (this.process) return; // Do not allow multiple apm processes to run
+    if (this.process) return; // Do not allow multiple package-manager processes to run
     if (this.updatePackageDependenciesStatusView)
       this.updatePackageDependenciesStatusView.attach();
 

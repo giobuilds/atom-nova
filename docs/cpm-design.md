@@ -1,10 +1,10 @@
 # cpm — Chevron Package Manager (design)
 
-**Status:** design (authoritative)  
-**Date:** 2026-07-19  
-**Product version context:** post-0.3.0 brand/polish; cpm is a later major milestone (e.g. 0.4.x / 0.5.x)  
-**Related:** [cpm-design-eli5.md](./cpm-design-eli5.md) (plain-language companion), [REBRANDING.md](./REBRANDING.md)  
-**Replaces over time:** bundled `apm` (`atom-package-manager@2.6.2`)
+**Status:** **implemented** (Phases 0–4 complete; this doc remains authoritative)  
+**Date:** 2026-07-19 · **Closeout:** 2026-07-22  
+**Product version context:** post-0.3.0; cpm shipped via PRs #24–#30  
+**Related:** [cpm-design-eli5.md](./cpm-design-eli5.md), [cpm-cutover.md](./cpm-cutover.md), [REBRANDING.md](./REBRANDING.md)  
+**Replaced in product:** classic bundled `apm` (`atom-package-manager@2.6.2`); **`apm` name remains a shim → cpm**
 
 ---
 
@@ -82,7 +82,7 @@ From product rebrand decisions:
 | E | User-facing CLI in the app bundle |
 | F | Soft compatibility checks (`engines.atom`) |
 
-**Chevron today:** A–C are partially split — modern bootstrap uses apm for install, then **host/modern node-gyp** for Electron 43. D is largely broken without a live registry. E–F still matter for UX and ecosystem.
+**Chevron after Phases 0–4:** A is **host npm** at bootstrap. B–F are **cpm** (Electron-as-Node), with Pulsar registry for D and **`apm` as a name shim** for E/F muscle memory.
 
 ### 3.2 Pulsar — `ppm`
 
@@ -483,20 +483,20 @@ Respect licenses and Pulsar terms if proxying their API; document attribution.
 
 **Not in Phase 1 (later):** registry search/view (Phase 2), prebuilds (Phase 3), remove apm tree (Phase 4).
 
-### Phase 2 — Registry client — **in progress / DONE when PR merges**
+### Phase 2 — Registry client — **DONE** (#28)
 
 - Configurable API base URL via `CPM_REGISTRY_URL` (default `https://api.pulsar-edit.dev`).
 - `cpm search` / `cpm view` against Pulsar package-backend.
 - `cpm install <name>` resolves via registry tarball (fallback: npm / git).
 
-### Phase 3 — Prebuilds — **in progress / DONE when PR merges**
+### Phase 3 — Prebuilds — **DONE** (#29)
 
 - Install/rebuild **prefer prebuilds** before `@electron/rebuild` source compile.
 - Strategies: already-present `.node` → `chevron.prebuilds` URL template → `prebuild-install` → source.
 - `cpm rebuild --force-source` skips prebuilds.
 - Author docs: [cpm-prebuilds.md](./cpm-prebuilds.md); example workflow `.github/workflows/cpm-prebuild-example.yml`.
 
-### Phase 4 — Retire apm tree — **DONE when PR merges**
+### Phase 4 — Retire apm tree — **DONE** (#30)
 
 - Product packaging ships **cpm only** (no atom-package-manager Node 12 tree).
 - **`apm` name** remains a **shim → cpm** (shell, Squirrel, deb/rpm, `getApmPath`).
@@ -510,16 +510,14 @@ Keep **two paths** distinct when reading this table:
 | Path | Process | Tooling lean |
 |------|---------|--------------|
 | **User / in-app packages** | Always **`ELECTRON_RUN_AS_NODE=1`** + product binary (§5.2) | **cpm** (Phase 1+) |
-| **App bootstrap / root `node_modules`** | Host Node at build time | **host `npm ci` / `npm install` + `@electron/rebuild`** (Phase 0; open detail §13.4 — pure host npm is the default lean, not “cpm for bootstrap”) |
+| **App bootstrap / root `node_modules`** | Host Node at build time | **host `npm ci` / `npm install` + `@electron/rebuild`** (Phase 0; pure host npm is the default lean, not “cpm for bootstrap”) |
 
 | Product | Package manager |
 |---------|-----------------|
 | 0.3.x | apm remains; polish only |
-| 0.4.x | Phase 0 (bootstrap off apm → host npm) + Phase 1 (cpm for user packages, `apm` shim) |
-| 0.5.x | Phase 2 (registry client); bootstrap **stays** host npm + `@electron/rebuild` unless §13.4 is reopened |
-| Later | Phase 3–4 (prebuilds; retire apm tree) |
+| **post-0.3 / master (2026-07)** | **Phases 0–4 complete:** host npm bootstrap + **cpm** for user packages; classic apm retired from product; **`apm` shim** |
 
-Exact version numbers are editorial; effort is multi-PR.
+Exact version numbers for a named release (e.g. 0.4.0) are editorial; the roadmap itself is closed. Cutover notes: [cpm-cutover.md](./cpm-cutover.md).
 
 ---
 

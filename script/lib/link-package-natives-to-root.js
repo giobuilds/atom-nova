@@ -4,7 +4,7 @@ const fs = require('fs-extra');
 const path = require('path');
 
 /**
- * After a package-local `apm install --ignore-scripts`, nested native addons
+ * After a package-local host-npm install (`--ignore-scripts`), nested native addons
  * may be present as source-only trees from the registry. Replace them with the
  * already-built, Electron-14-patched copies from the repo root so require()
  * resolution finds a working .node binary.

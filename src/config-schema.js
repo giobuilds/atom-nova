@@ -327,9 +327,9 @@ const configSchema = {
         default: true
       },
       useProxySettingsWhenCallingApm: {
-        title: 'Use Proxy Settings When Calling APM',
+        title: 'Use Proxy Settings When Calling Package Manager',
         description:
-          'Use detected proxy settings when calling the `apm` command-line tool.',
+          'Use detected proxy settings when calling the package manager (`cpm`, or the `apm` shim).',
         type: 'boolean',
         default: true
       },

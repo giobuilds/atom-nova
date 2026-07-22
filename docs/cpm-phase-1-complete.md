@@ -1,7 +1,7 @@
 # cpm Phase 1 — complete
 
 **Date:** 2026-07-21  
-**Status:** Done (PRs #25, #26, + finish PR)
+**Status:** Done (PRs #25, #26, #27)
 
 ## Delivered
 
@@ -25,10 +25,10 @@
 ./cpm/bin/apm rebuild --no-color   # shim → cpm (editor contract)
 ```
 
-## Next
+## Later phases (also done)
 
-- **Phase 2** — registry `search` / `view` / install-by-name  
-- **Phase 3** — prebuilds  
-- **Phase 4** — remove classic apm bundle from product  
+- **Phase 2** — registry `search` / `view` / install-by-name (#28)  
+- **Phase 3** — prebuilds (#29)  
+- **Phase 4** — remove classic apm from product (#30)  
 
-See [cpm-design.md](./cpm-design.md) §10.
+Cutover guide: [cpm-cutover.md](./cpm-cutover.md). Design: [cpm-design.md](./cpm-design.md) §10.

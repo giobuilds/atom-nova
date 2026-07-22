@@ -1,20 +1,43 @@
-# Atom Docs
+# Chevron documentation
 
-![Atom](https://cloud.githubusercontent.com/assets/72919/2874231/3af1db48-d3dd-11e3-98dc-6066f8bc766f.png)
+Chevron is a modernized fork of Atom. This tree holds **project-specific** design and ops docs. Historical Atom user docs live in the [Flight Manual](https://flight-manual.atom.io) / archive.
 
-Most of the Atom user and developer documentation is contained in the [Atom Flight Manual](https://github.com/atom/flight-manual.atom.io).
+## Package manager (cpm)
 
-## Build documentation
+| Doc | Purpose |
+|-----|---------|
+| [cpm-cutover.md](./cpm-cutover.md) | **Start here** — user/author/packager migration notes |
+| [cpm-design.md](./cpm-design.md) | Authoritative design (Phases 0–4 complete) |
+| [cpm-design-eli5.md](./cpm-design-eli5.md) | Plain-language companion |
+| [cpm-prebuilds.md](./cpm-prebuilds.md) | Native prebuild guidance for package authors |
+| [cpm-phase-1-complete.md](./cpm-phase-1-complete.md) | Phase 1 closeout |
+| [cpm-phase-4-complete.md](./cpm-phase-4-complete.md) | Phase 4 closeout |
+| [cpm-phase-0-inventory.md](./cpm-phase-0-inventory.md) | Historical Phase 0 inventory |
+| [cpm-phase-0-spike.md](./cpm-phase-0-spike.md) | Historical Phase 0 spike |
 
-Instructions for building Atom on various platforms from source.
+CLI source and README: [`cpm/`](../cpm/).
 
-* Moved to [the Flight Manual](https://flight-manual.atom.io/hacking-atom/sections/hacking-on-atom-core/)
-    * Linux
-    * macOS
-    * Windows
+## Build from source
 
-## Other documentation
+- [build-instructions/linux.md](./build-instructions/linux.md)
+- [build-instructions/macOS.md](./build-instructions/macOS.md)
+- [build-instructions/windows.md](./build-instructions/windows.md)
+- [build-instructions/build-status.md](./build-instructions/build-status.md)
 
-[Native Profiling on macOS](./native-profiling.md)
+Always use `./script/bootstrap-modern` (host Node 24 + host npm). See root [README.md](../README.md).
 
-The other documentation that was listed here previously has been moved to [the Flight Manual](https://flight-manual.atom.io).
+## Product / architecture
+
+| Doc | Purpose |
+|-----|---------|
+| [REBRANDING.md](./REBRANDING.md) | Chevron dual-support decisions |
+| [onboarding-polish.md](./onboarding-polish.md) | First-run Welcome/Guide checklist |
+| [atom-architecture.md](./atom-architecture.md) | Architecture notes |
+| [atom-architecture-eli5.md](./atom-architecture-eli5.md) | ELI5 architecture |
+| [CHANGELOG.md](../CHANGELOG.md) | Release notes |
+
+## Other
+
+- [contributing.md](./contributing.md), [contributing-to-packages.md](./contributing-to-packages.md)
+- [native-profiling.md](./native-profiling.md)
+- Security phase notes, RFCs under `rfcs/`, toolchain upgrade plan

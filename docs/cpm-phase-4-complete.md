@@ -1,7 +1,7 @@
 # cpm Phase 4 — retire classic apm from the product
 
 **Date:** 2026-07-21  
-**Status:** Done when PR merges
+**Status:** **Done** — merged as [#30](https://github.com/builtbygio/chevron/pull/30)
 
 ## What changed
 
@@ -15,14 +15,20 @@
 ## Compatibility
 
 - Command name **`apm`** still works → **cpm** (rebuild contract, scripts, PATH).
-- Tiny **`app/apm/...`** stubs in the package redirect to cpm so old relative paths do not hard-fail.
+- Tiny **`app/apm/...`** launcher scripts in the package redirect to cpm (real files, not broken relative symlinks).
 - Monorepo folder `apm/` is **historical** (see `apm/README.md`); optional `--with-apm` for debugging only.
 
-## Not deleted (yet)
+## Follow-ups landed in closeout
 
-- Source tree `apm/package.json` pin of `atom-package-manager` (optional later cleanup).
-- Patch scripts `patch-apm-*` (only used with `--with-apm`).
+- User-facing Welcome/Guide copy reflects cpm shipping.
+- Secondary build/test tooling uses **host npm** / monorepo **cpm** shims (not classic apm).
+- Cutover guide: [cpm-cutover.md](./cpm-cutover.md).
+
+## Not deleted (intentionally)
+
+- Source tree `apm/package.json` pin of `atom-package-manager` for optional archaeology.
+- Patch scripts `patch-apm-*` (only with `--with-apm`).
 
 ## Phases
 
-0–4 complete for the cpm roadmap in design. Optional follow-ups: remove monorepo `apm/` directory entirely; settings-view registry UI polish.
+**0–4 complete.** Authoritative design: [cpm-design.md](./cpm-design.md).

@@ -1,5 +1,8 @@
-## Update Package Dependencies package
+# Update Package Dependencies package
 
-Runs `apm install` from the current project's directory. This will install all dependencies referenced in the `package.json` file to the `node_modules` folder.
+Runs the product package manager (`cpm`, also available as the `apm` shim) with
+`install` in the current project's directory. This installs dependencies from
+`package.json` into `node_modules`.
 
-This should only be used in projects that are Atom packages.
+Uses `atom.packages.getApmPath()`, which points at **cpm** in modern Chevron
+builds (Phase 4+).

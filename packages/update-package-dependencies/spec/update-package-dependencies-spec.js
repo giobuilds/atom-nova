@@ -25,7 +25,7 @@ describe('Update Package Dependencies', () => {
       if (updatePackageDependencies.process) exit(0);
     });
 
-    it('runs the `apm install` command', () => {
+    it('runs package-manager install (cpm / apm path)', () => {
       updatePackageDependencies.update();
 
       expect(updatePackageDependencies.runBufferedProcess).toHaveBeenCalled();
@@ -38,7 +38,7 @@ describe('Update Package Dependencies', () => {
       expect(options.cwd).toEqual(projectPath);
     });
 
-    it('only allows one apm process to be spawned at a time', () => {
+    it('only allows one package-manager process to be spawned at a time', () => {
       updatePackageDependencies.update();
       expect(updatePackageDependencies.runBufferedProcess.callCount).toBe(1);
 
