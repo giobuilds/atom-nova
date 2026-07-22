@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] — 2026-07-22
+
+Package manager cutover and Security Phase N resume. Electron remains **43.1.0**.
+
 ### Added
 
 - **cpm package manager (Phases 0–4 complete)** — cutover guide: [docs/cpm-cutover.md](docs/cpm-cutover.md)
@@ -20,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Shell installer installs `cpm` + `apm` shim; Windows `resources/win/cpm.cmd` + Squirrel PATH
     - `engines.atom` / `engines.chevron` checks on install; compile-cache policy (b) runtime-only
     - Install smoke + rebuild contract tests
+- **Security Phase N2.1:** settings-view avatar cache writes/lists/deletes only via main-process IPC under `userData/Cache/settings-view` (basename allowlist + size cap)
 
 ### Changed
 
@@ -30,6 +35,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Secondary tooling** no longer invokes classic apm for monorepo installs (`script/test`, `update-dependency`, `run-apm-install` → host npm; `getApmBinPath` → monorepo cpm shim)
 - **First-run / onboarding** (`packages/welcome`): Welcome/Guide copy documents **cpm** (and `apm` shim); removed Atom sunset/telemetry consent; Teletype card removed
 - **User migration (cutover):** prefer `cpm …`; existing `apm …` scripts keep working via shim; Settings installer uses cpm; registry defaults to Pulsar — see [docs/cpm-cutover.md](docs/cpm-cutover.md)
+- **Settings package search / featured / install UI** use Pulsar registry APIs (not dead atom.io); registry patch re-applied after Coffee transpile in the package build
+- Session handoff (`GROK.md`) rewritten for post-cpm baseline; **next epic = Security Phase N**
 
 ## [0.3.0] — 2026-07-18
 

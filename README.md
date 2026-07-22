@@ -18,7 +18,7 @@ Rather than a from-scratch rewrite, Chevron takes the harder — and more educat
 
 ## Status
 
-**0.3.0** — multi-platform CI and packaging (Linux x64/arm64 deb+rpm, macOS Intel + Apple Silicon, Windows), Chevron product identity, and new app icon/logo.
+**0.4.0** — **cpm** package manager (Phases 0–4), Pulsar registry for Settings search/install, multi-platform CI packaging, and Security Phase N resume (settings-view avatar cache via main IPC).
 
 Still early: great for building from source and dogfooding; not a polished daily-driver release yet.
 
@@ -28,7 +28,9 @@ Still early: great for building from source and dogfooding; not a polished daily
 | Bundle ID | `dev.builtbygio.chevron` |
 | Package API | Dual-support forever (`atom://`, `global.atom`, `engines.atom`) |
 | Package manager | **cpm** (Electron-as-Node); `apm` is a long-lived **shim → cpm** |
+| Registry | Pulsar by default (`CPM_REGISTRY_URL` override) |
 | Config home | `~/.atom` by default; `CHEVRON_HOME` / `~/.chevron` supported |
+| Security | Phase N in progress — see [docs/security-phase-n.md](docs/security-phase-n.md) |
 
 See [CHANGELOG.md](CHANGELOG.md) and [docs/REBRANDING.md](docs/REBRANDING.md).
 
@@ -40,6 +42,7 @@ See [CHANGELOG.md](CHANGELOG.md) and [docs/REBRANDING.md](docs/REBRANDING.md).
 - [x] Chevron branding (icons, shell, package identity)
 - [x] Further first-run / onboarding polish — see [docs/onboarding-polish.md](docs/onboarding-polish.md)
 - [x] Modern package manager path — Phase 0–4 complete (`cpm`; see [docs/cpm-design.md](docs/cpm-design.md), [docs/cpm-cutover.md](docs/cpm-cutover.md)); `apm` remains as a cpm shim
+- [ ] Security Phase N — narrow package Node surface ([docs/security-phase-n.md](docs/security-phase-n.md)); N2.1 avatar cache IPC shipped in 0.4.0
 
 ## Non-goals (for now)
 

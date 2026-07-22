@@ -5,6 +5,7 @@
  * Registered once from AtomApplication so handlers can resolve AtomWindow.
  */
 
+const fs = require('fs');
 const path = require('path');
 const {
   BrowserWindow,
@@ -23,6 +24,10 @@ let registered = false;
 
 // Hidden windows created for packages (e.g. github git workers)
 const createdWindows = new Map(); // windowId -> BrowserWindow
+
+// Phase N2.1: settings-view avatar cache lives only under userData/Cache/settings-view.
+const SETTINGS_VIEW_CACHE_MAX_BYTES = 5 * 1024 * 1024;
+const SAFE_CACHE_BASENAME = /^[A-Za-z0-9._-]+$/;
 
 function browserWindowFromEvent(event) {
   return BrowserWindow.fromWebContents(event.sender);
@@ -57,6 +62,22 @@ function isSafeAbsolutePath(fullPath) {
   if (typeof fullPath !== 'string' || fullPath.length === 0) return false;
   if (fullPath.includes('\0')) return false;
   return path.isAbsolute(fullPath);
+}
+
+function settingsViewCacheRoot() {
+  return path.join(app.getPath('userData'), 'Cache', 'settings-view');
+}
+
+function isSafeCacheBasename(name) {
+  return typeof name === 'string' && SAFE_CACHE_BASENAME.test(name);
+}
+
+function resolveSettingsViewCachePath(basename) {
+  if (!isSafeCacheBasename(basename)) return null;
+  const root = path.resolve(settingsViewCacheRoot());
+  const resolved = path.resolve(root, basename);
+  if (resolved !== root && !resolved.startsWith(root + path.sep)) return null;
+  return resolved;
 }
 
 module.exports = function registerRendererIpc(atomApplication) {
@@ -257,6 +278,79 @@ module.exports = function registerRendererIpc(atomApplication) {
       return true;
     } catch (error) {
       console.error('atom-shell-move-item-to-trash', error);
+      return false;
+    }
+  });
+
+  // --- Phase N2.1: settings-view avatar cache (confined FS) -----------------
+  // Renderer packages must not write arbitrary paths; only basenames under
+  // userData/Cache/settings-view are accepted.
+
+  ipcMain.handle('atom-settings-view-cache-ensure', async () => {
+    const root = settingsViewCacheRoot();
+    try {
+      fs.mkdirSync(root, { recursive: true });
+      return root;
+    } catch (error) {
+      console.error('atom-settings-view-cache-ensure', error);
+      return null;
+    }
+  });
+
+  ipcMain.handle('atom-settings-view-cache-list', async () => {
+    const root = settingsViewCacheRoot();
+    try {
+      return fs
+        .readdirSync(root)
+        .filter(name => isSafeCacheBasename(name));
+    } catch (error) {
+      if (error && error.code === 'ENOENT') return [];
+      console.error('atom-settings-view-cache-list', error);
+      return [];
+    }
+  });
+
+  ipcMain.handle(
+    'atom-settings-view-cache-write',
+    async (_event, basename, data) => {
+      const abs = resolveSettingsViewCachePath(basename);
+      if (!abs) {
+        console.warn(
+          `atom-settings-view-cache-write: blocked name ${String(basename)}`
+        );
+        return { ok: false, error: 'invalid-name' };
+      }
+      try {
+        const buf = Buffer.isBuffer(data)
+          ? data
+          : Buffer.from(data || []);
+        if (buf.length > SETTINGS_VIEW_CACHE_MAX_BYTES) {
+          return { ok: false, error: 'too-large' };
+        }
+        fs.mkdirSync(settingsViewCacheRoot(), { recursive: true });
+        fs.writeFileSync(abs, buf);
+        return { ok: true, path: abs };
+      } catch (error) {
+        console.error('atom-settings-view-cache-write', error);
+        return { ok: false, error: String(error && error.message) };
+      }
+    }
+  );
+
+  ipcMain.handle('atom-settings-view-cache-unlink', async (_event, basename) => {
+    const abs = resolveSettingsViewCachePath(basename);
+    if (!abs) {
+      console.warn(
+        `atom-settings-view-cache-unlink: blocked name ${String(basename)}`
+      );
+      return false;
+    }
+    try {
+      fs.unlinkSync(abs);
+      return true;
+    } catch (error) {
+      if (error && error.code === 'ENOENT') return true;
+      console.error('atom-settings-view-cache-unlink', error);
       return false;
     }
   });

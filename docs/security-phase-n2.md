@@ -32,11 +32,23 @@ Applied on every `bootstrap-modern` (idempotent):
 
 Packages previously called `electron.shell` in the preload/isolated world, bypassing the main-process scheme filter and using removed sync trash APIs. Cross-window tree-view DND used `remote` + `getCurrentWindow().id`, which is unreliable under the IPC window proxy.
 
+## N2.1 — settings-view avatar cache (done 0.4.0)
+
+Avatar images no longer use renderer `fs-plus` / `glob` under `userData`.
+
+| Channel | Behavior |
+|---------|----------|
+| `atom-settings-view-cache-ensure` | `mkdir -p` `userData/Cache/settings-view`; returns root path |
+| `atom-settings-view-cache-list` | basenames only (safe name filter) |
+| `atom-settings-view-cache-write` | basename + buffer; max 5 MiB; path confined to cache root |
+| `atom-settings-view-cache-unlink` | basename only; confined |
+
+Patch: `script/lib/patch-packages-remote-ipc.js` rewrites `atom-io-client.coffee` (idempotent; marker `atom-settings-view-cache-ensure`).
+
 ## Deferred (later N2 / N3)
 
-- fuzzy-finder `child_process.spawn` (ripgrep) and path crawl `fs` — already in `atom.Task`
+- fuzzy-finder `child_process.spawn` (ripgrep) and path crawl `fs` — crawl already in `atom.Task`; audit UI-process `fs-plus`
 - tree-view bulk `fs-plus` for file ops UI
-- settings-view avatar cache `fs` under userData
 - Full package require allowlist (N3)
 
 ## Verify
