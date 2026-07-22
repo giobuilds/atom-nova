@@ -26,16 +26,25 @@ In-app SVG wordmarks live in:
 
 ## Regenerating icons
 
-Prefer the checked-in generator (true transparent corners, no JPEG white fringe):
+Multi-size PNGs / ICO come from the design **1024.png masters** (export with
+transparent corners — see PR #21). Resize only:
 
 ```bash
 python3 script/generate-app-icons.py   # requires Pillow; optional ImageMagick for .icns
 ```
 
-Do **not** reintroduce `chevron-icon-source.jpg` as the master — it is RGB-only with white corners. PNGs must keep alpha `0` outside the rounded mark.
+Do **not** redraw the chevrons in code (jagged edges). Do **not** use
+`chevron-icon-source.jpg` as master — it is RGB-only with white corners.
 
 ## Linux taskbar note
 
 Wayland shells often ignore `BrowserWindow` icons and use the installed
 `.desktop` + hicolor theme entry (`Icon=chevron`). Install via the package or
 `script` install path so `StartupWMClass=Chevron` matches.
+
+For a **local packaged build** (`out/Chevron-linux-x64`):
+
+```bash
+./script/install-local-linux-desktop.sh
+gtk-launch chevron   # prefer this over running the binary path directly
+```

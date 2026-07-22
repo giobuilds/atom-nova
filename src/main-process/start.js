@@ -41,6 +41,12 @@ module.exports = function start(resourcePath, devResourcePath, startTime) {
 
   app.commandLine.appendSwitch('enable-experimental-web-platform-features');
 
+  // Linux: set WM_CLASS / Wayland app_id so shells can match chevron.desktop
+  // (generic binary icon otherwise when launched without a desktop entry).
+  if (process.platform === 'linux') {
+    app.commandLine.appendSwitch('class', 'Chevron');
+  }
+
   const args = parseCommandLine(process.argv.slice(1));
 
   // This must happen after parseCommandLine() because yargs uses console.log
