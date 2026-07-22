@@ -111,6 +111,44 @@ patchFile('node_modules/settings-view/lib/atom-io-client.coffee', t => {
   return out;
 });
 
+// Settings Install panel: user-facing links → Pulsar package explorer
+patchFile('node_modules/settings-view/lib/install-panel.js', t => {
+  if (t.includes('packages.pulsar-edit.dev')) return t;
+  return t
+    .replace(
+      /this\.atomIoURL = 'https:\/\/atom\.io\/packages'/g,
+      "this.atomIoURL = 'https://packages.pulsar-edit.dev/packages'"
+    )
+    .replace(
+      /this\.atomIoURL = 'https:\/\/atom\.io\/themes'/g,
+      "this.atomIoURL = 'https://packages.pulsar-edit.dev/themes'"
+    )
+    .replace(/>atom\.io<\/a>/, '>packages.pulsar-edit.dev</a>')
+    .replace(/Packages are published to /, 'Packages are listed on ')
+    .replace(/Themes are published to /g, 'Themes are listed on ');
+});
+
+patchFile('node_modules/settings-view/lib/package-card.js', t => {
+  if (t.includes('packages.pulsar-edit.dev')) return t;
+  return t
+    .replace(
+      /https:\/\/atom\.io\/users\/\$\{owner\}/g,
+      'https://github.com/${owner}'
+    )
+    .replace(
+      /https:\/\/atom\.io\/\$\{packageType\}\/\$\{this\.pack\.name\}/g,
+      'https://packages.pulsar-edit.dev/${packageType}/${this.pack.name}'
+    );
+});
+
+patchFile('node_modules/settings-view/lib/package-detail-view.js', t => {
+  if (t.includes('packages.pulsar-edit.dev')) return t;
+  return t.replace(
+    /https:\/\/atom\.io\/packages\/\$\{this\.pack\.name\}/g,
+    'https://packages.pulsar-edit.dev/packages/${this.pack.name}'
+  );
+});
+
 patchFile('node_modules/atom-pathspec/index.js', t => {
   if (t.includes('atom-app-get-path-sync')) return t;
   return t.replace(
