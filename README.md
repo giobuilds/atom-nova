@@ -26,7 +26,8 @@ Still early: great for building from source and dogfooding; not a polished daily
 |-------|--------|
 | Electron | **43.1.0** |
 | Bundle ID | `dev.builtbygio.chevron` |
-| Package API | Dual-support forever (`atom://`, `global.atom`, `engines.atom`, `apm`) |
+| Package API | Dual-support forever (`atom://`, `global.atom`, `engines.atom`) |
+| Package manager | **cpm** (Electron-as-Node); `apm` is a long-lived **shim → cpm** |
 | Config home | `~/.atom` by default; `CHEVRON_HOME` / `~/.chevron` supported |
 
 See [CHANGELOG.md](CHANGELOG.md) and [docs/REBRANDING.md](docs/REBRANDING.md).
@@ -38,7 +39,7 @@ See [CHANGELOG.md](CHANGELOG.md) and [docs/REBRANDING.md](docs/REBRANDING.md).
 - [x] Clean multi-platform builds on current Electron
 - [x] Chevron branding (icons, shell, package identity)
 - [x] Further first-run / onboarding polish — see [docs/onboarding-polish.md](docs/onboarding-polish.md)
-- [x] Modern package manager path — Phase 0–4 complete (`cpm`; see [docs/cpm-design.md](docs/cpm-design.md)); `apm` remains as a cpm shim
+- [x] Modern package manager path — Phase 0–4 complete (`cpm`; see [docs/cpm-design.md](docs/cpm-design.md), [docs/cpm-cutover.md](docs/cpm-cutover.md)); `apm` remains as a cpm shim
 
 ## Non-goals (for now)
 

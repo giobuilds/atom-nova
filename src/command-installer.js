@@ -29,7 +29,7 @@ module.exports = class CommandInstaller {
       );
     };
 
-    // Primary: chevron; compatibility: atom + apm; Phase 1: cpm.
+    // Primary: chevron; compatibility: atom + apm; package manager: cpm (+ apm shim).
     this.installChevronCommand(true, (error, chevronCommandName) => {
       if (error) return showErrorDialog(error);
       this.installAtomCommand(true, (error, atomCommandName) => {

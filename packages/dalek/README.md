@@ -11,7 +11,7 @@ When people install core Atom packages as if they are community packages, it can
 1. Note down the packages named in the notification
 1. Exit Atom
 1. Open a command prompt
-1. For each package named in the notification, execute `apm uninstall [package-name]`
+1. For each package named in the notification, execute `cpm uninstall [package-name]` (or `apm uninstall` — same shim)
 1. Start Atom again normally to verify that the warning notification no longer appears
 
 ## I have more questions. Where can I ask them?

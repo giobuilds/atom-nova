@@ -64,6 +64,7 @@ module.exports = {
   atomHomeDirPath,
   homeDirPath,
   getApmBinPath,
+  getCpmBinPath,
   getNpmBinPath,
   getLocalNpmBinPath,
   snapshotAuxiliaryData: {}
@@ -124,7 +125,14 @@ function computeAppVersion(version) {
 }
 
 function getApmBinPath() {
+  // Phase 4+: monorepo tooling uses cpm's apm shim (not classic atom-package-manager).
+  // Optional --with-apm still installs classic apm under apm/, but product and scripts
+  // prefer cpm.
   const apmBinName = process.platform === 'win32' ? 'apm.cmd' : 'apm';
+  const cpmApm = path.join(repositoryRootPath, 'cpm', 'bin', apmBinName);
+  if (require('fs').existsSync(cpmApm)) {
+    return cpmApm;
+  }
   return path.join(
     apmRootPath,
     'node_modules',
@@ -132,6 +140,11 @@ function getApmBinPath() {
     'bin',
     apmBinName
   );
+}
+
+function getCpmBinPath() {
+  const cpmBinName = process.platform === 'win32' ? 'cpm.cmd' : 'cpm';
+  return path.join(repositoryRootPath, 'cpm', 'bin', cpmBinName);
 }
 
 function getNpmBinPath() {

@@ -43,11 +43,11 @@ open "out/Atom Dev.app"   # still named Atom Dev (channel-based)
 | `.nvmrc` | Pins **Node 24** (host bootstrap; matches Electron 43 major story) |
 | `script/lib/modern-env.sh` | Node 20–24 (prefer 24), Python 3.12/3.13 (3.11 fallback), `ATOM_ELECTRON_URL`, gyp `rU` patch helper |
 | `script/with-modern-env` | Run any command with modern env |
-| `script/bootstrap-modern` | Full dep install with apm Node-12 postinstall isolation + patches |
+| `script/bootstrap-modern` | Full dep install via **host npm** + patches; installs `cpm/` deps; optional `--with-apm` (debug only) |
 | `docs/bootstrap-report.md` | Failure ladder + rules |
 | `README.md` | AtomNova intro + modern build docs |
 
-**Host prerequisites:** nvm Node **24** (accepted 20–24), Python **3.12** (CI pin; 3.13 OK; 3.11 fallback) with `setuptools` on 3.12+, `~/.local/bin/python` shim (created by `modern-env`), `ATOM_ELECTRON_URL=https://www.electronjs.org/headers`. apm still runs on **bundled Node 12** for package install.
+**Host prerequisites:** nvm Node **24** (accepted 20–24), Python **3.12** (CI pin; 3.13 OK; 3.11 fallback) with `setuptools` on 3.12+, `~/.local/bin/python` shim (created by `modern-env`), `ATOM_ELECTRON_URL=https://www.electronjs.org/headers`. **User packages:** **cpm** (Electron-as-Node); `apm` is a shim → cpm. Classic apm Node 12 is **not** on the product path (Phases 0–4 complete — see `docs/cpm-cutover.md`).
 
 ### Runtime fixes
 
@@ -91,7 +91,7 @@ Uncommitted rebrand WIP was **discarded** with `git restore` (owner postponed fu
 | Built app name | Still **Atom Dev** via `script/config.js` channel logic |
 | Security model | **`contextIsolation: true`**, `nodeIntegration: false` (page); Atom boots in **preload** (Node); no `@electron/remote` |
 | Telemetry | **Removed** — no metrics/exception-reporting packages; crash upload forced off; consent default `no` |
-| apm | Bundled Node **12.14.1**; registry/update still Atom-era |
+| Package manager | **cpm** under `cpm/` (Phases 0–4 done); `apm` name = shim → cpm; product does not ship classic apm |
 
 ---
 

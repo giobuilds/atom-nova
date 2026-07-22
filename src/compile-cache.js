@@ -1,6 +1,7 @@
 'use strict';
 
-// Atom's compile-cache when installing or updating packages, called by apm's Node-js
+// Atom's compile-cache when installing or updating packages (historically apm;
+// cpm uses runtime-only compile-cache policy — see docs/cpm-design.md)
 
 const path = require('path');
 const fs = require('fs-plus');

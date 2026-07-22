@@ -50,7 +50,7 @@ All of the following should be true before checking the README goal:
 | ID | Task | Status | Notes |
 |----|------|--------|-------|
 | W2.1 | Teletype card | [x] | **Removed** |
-| W2.2 | Install a Package | [x] | Honest apm/registry limits note; **Open Installer** kept |
+| W2.2 | Install a Package | [x] | Updated for **cpm** shipping (apm shim); **Open Installer** kept |
 | W2.3 | Git / GitHub | [x] | CTAs unchanged (`github:toggle-*-tab`); copy slightly toned |
 | W2.4 | Init / stylesheet / snippets | [x] | Config-home note (`~/.atom` / CHEVRON_HOME) |
 | W2.5 | Help links | [x] | Primary → builtbygio/chevron |
@@ -92,7 +92,7 @@ All of the following should be true before checking the README goal:
 
 | Topic | Where |
 |-------|--------|
-| cpm / apm successor | [cpm-design.md](./cpm-design.md) |
+| cpm (done) | [cpm-cutover.md](./cpm-cutover.md), [cpm-design.md](./cpm-design.md) |
 | Runtime package sandbox | Later platform work |
 | Config-home migrate UI | W3 WONTFIX |
 
@@ -119,3 +119,4 @@ CHANGELOG.md
 |------|------|
 | 2026-07-19 | Checklist created from post-0.3.0 gap analysis. |
 | 2026-07-19 | W1–W5 completed: delete sunset/consent; Guide honesty; W3 WONTFIX; Welcome works/WIP + shell nudge; docs/README/CHANGELOG. |
+| 2026-07-22 | cpm Phases 0–4 complete; Welcome/Guide package-manager copy updated for cpm + apm shim; cutover doc added. |

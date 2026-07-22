@@ -29,7 +29,7 @@ function verifyPython() {
   // This node-gyp is the version in use by current npm (in mid 2020).
   //
   // TODO: If this repo ships a newer version of node-gyp (v6.x or later), please update this script.
-  // (Currently, the build scripts and apm each depend on npm v6.14, which depends on node-gyp v5.)
+  // Host Node 24 + modern npm for bootstrap; product packages use cpm (Electron-as-Node).
   // Differences between major versions of node-gyp:
   // node-gyp 5.x looks for python, then python2, then python3.
   // node-gyp 6.x looks for python3, then python, then python2.)

@@ -130,16 +130,18 @@ export default class WelcomeView {
             {showShellNudge ? (
               <p className="welcome-note">
                 <strong>Shell commands:</strong> installs{' '}
-                <code>chevron</code>, <code>atom</code>, and <code>apm</code> on
-                your PATH (same as Chevron → Install Shell Commands). Also
+                <code>chevron</code>, <code>atom</code>, <code>cpm</code>, and{' '}
+                <code>apm</code> on your PATH (same as Chevron → Install Shell
+                Commands). <code>apm</code> is a shim to <code>cpm</code>. Also
                 available later from the application menu.
               </p>
             ) : (
               <p className="welcome-note">
                 <strong>Tip:</strong> On macOS you can install{' '}
-                <code>chevron</code> / <code>atom</code> / <code>apm</code> on
-                PATH from the application menu. On Linux/Windows, use your
-                package install or PATH setup from the build docs.
+                <code>chevron</code> / <code>atom</code> / <code>cpm</code> /{' '}
+                <code>apm</code> on PATH from the application menu. On
+                Linux/Windows, use your package install or PATH setup from the
+                build docs.
               </p>
             )}
           </section>
@@ -152,14 +154,15 @@ export default class WelcomeView {
               <li>
                 <strong>Works today:</strong> multi-platform builds (Linux,
                 macOS, Windows), Electron 43 dogfood, dual-support package API (
-                <code>global.atom</code>, <code>engines.atom</code>,{' '}
-                <code>apm</code>), core editing and bundled packages.
+                <code>global.atom</code>, <code>engines.atom</code>),{' '}
+                <code>cpm</code> package manager (with <code>apm</code> shim),
+                core editing and bundled packages.
               </li>
               <li>
                 <strong>Still early:</strong> not a polished daily-driver
-                release yet. Community package search/install depends on legacy
-                apm/registry paths and may be limited until the cpm package
-                manager lands.
+                release yet. Install packages with <code>cpm</code> (or{' '}
+                <code>apm</code>) from Settings or the CLI; registry search uses
+                the Pulsar package API by default.
               </li>
               <li>
                 Docs and issues:{' '}
@@ -189,8 +192,8 @@ export default class WelcomeView {
               </li>
               <li>
                 Community packages use the Atom package API (
-                <code>global.atom</code>, <code>engines.atom</code>,{' '}
-                <code>apm</code>).
+                <code>global.atom</code>, <code>engines.atom</code>). Install
+                with <code>cpm</code> (or the <code>apm</code> shim).
               </li>
               <li>
                 Historical Atom references:{' '}

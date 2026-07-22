@@ -9,7 +9,7 @@
  *   stats.mtime = stats.mtime.getTime()  // throws: undefined.getTime
  *
  * directory.js already guarded with `&&` but still lost times after pick.
- * Idempotent. Run from bootstrap-modern after apm install.
+ * Idempotent. Run from bootstrap-modern after host npm install.
  *
  * Usage: node script/lib/patch-tree-view-stats.js [repoRoot]
  */
