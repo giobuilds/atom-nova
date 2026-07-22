@@ -5,13 +5,51 @@ const {
   ipcMain,
   nativeImage
 } = require('electron');
+const fs = require('fs');
 const getAppName = require('../get-app-name');
 const path = require('path');
 const url = require('url');
 const { EventEmitter } = require('events');
 const StartupTime = require('../startup-time');
 
-const ICON_PATH = path.resolve(__dirname, '..', '..', 'resources', 'atom.png');
+// Linux window/taskbar icon. Prefer real filesystem paths (asar.unpacked or
+// packaged app-root copies) because nativeImage.createFromPath does not read
+// asar archives.
+function resolveAppIconPath() {
+  const candidates = [];
+  if (process.resourcesPath) {
+    candidates.push(
+      path.join(
+        process.resourcesPath,
+        'app.asar.unpacked',
+        'resources',
+        'atom.png'
+      ),
+      path.join(
+        process.resourcesPath,
+        'app.asar.unpacked',
+        'resources',
+        'chevron.png'
+      ),
+      path.join(process.resourcesPath, '..', 'atom.png'),
+      path.join(process.resourcesPath, '..', 'chevron.png')
+    );
+  }
+  candidates.push(
+    path.resolve(__dirname, '..', '..', 'resources', 'atom.png'),
+    path.resolve(__dirname, '..', '..', 'resources', 'chevron.png')
+  );
+  for (const candidate of candidates) {
+    try {
+      if (candidate && fs.existsSync(candidate)) return candidate;
+    } catch (_) {
+      /* ignore */
+    }
+  }
+  return candidates[candidates.length - 2];
+}
+
+const ICON_PATH = resolveAppIconPath();
 
 // Guest <webview> may load package previews (markdown, images). Keep schemes
 // tight: no javascript:, no atom: (editor protocol), no file escalation via

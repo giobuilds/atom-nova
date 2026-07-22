@@ -304,7 +304,9 @@ function buildAsarUnpackGlobExpression() {
     path.join('**', 'node_modules', 'github', 'bin', '**'),
     path.join('**', 'node_modules', 'github', 'lib', '**'),
     path.join('**', 'node_modules', 'vscode-ripgrep', 'bin', '**'),
-    path.join('**', 'resources', 'atom.png')
+    path.join('**', 'resources', 'atom.png'),
+    // Window/taskbar icons (Linux createFromPath needs real files, not asar).
+    path.join('**', 'resources', 'chevron.png')
   ];
 
   return `{${unpack.join(',')}}`;

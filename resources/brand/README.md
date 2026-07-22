@@ -6,15 +6,14 @@ Source of truth for packaged icons:
 
 ```text
 resources/app-icons/<channel>/
-  chevron.icns   # macOS
-  chevron.ico    # Windows
-  png/16.png … 1024.png
-  atom.icns / atom.ico   # compatibility copies of the same art
+  chevron.icns / chevron.ico / chevron.png   # packager basenames (mac / win / linux)
+  atom.icns / atom.ico / atom.png            # compatibility copies of the same art
+  png/16.png … 1024.png / atom.png           # freedesktop sizes + legacy name
 ```
 
 Channels: `stable`, `beta`, `nightly`, `dev` (tinted variants).
 
-Packaging prefers the **`chevron`** basename (`package-application` icon path, Windows setup icon, `CFBundleIconFile`).
+Packaging prefers the **`chevron`** basename (`package-application` icon path, Windows setup icon, `CFBundleIconFile`). Linux **requires** `chevron.png` next to that basename (electron-packager does not read `png/1024.png` automatically).
 
 ## Mark
 
