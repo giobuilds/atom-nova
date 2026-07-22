@@ -113,8 +113,8 @@ Suggested order: **settings-view paths** → **fuzzy-finder spawn** → **tree-v
 | settings-view shell.openExternal | Done (N2) |
 | settings-view avatar cache FS | **Done N2.1 (0.4.0)** — main IPC `atom-settings-view-cache-*` |
 | tree-view shell / trash / DND | Done (N2) |
-| fuzzy-finder Task + residual fs/spawn | **Next** |
-| tree-view bulk fs-plus | Later N2 |
+| fuzzy-finder UI path probes | **Done N2.2** — `atom-fs-path-kind-sync` / `realpath`; Task crawl/rg stays in Task |
+| tree-view bulk fs-plus | **Next** |
 | github residual electron/net | Later N2 |
 
 ### N3 — Shrink preload default privilege

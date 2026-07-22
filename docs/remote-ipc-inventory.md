@@ -336,8 +336,8 @@ Packages: document `atomNova` (or keep `atom` APIs that already abstract Electro
 2. ~~**IPC trust boundary hardening**~~ **done** (scheme filter, drop webContents `executeJavaScript` IPC, lock worker prefs).  
 3. ~~**Packaged github worker assets**~~ **done** — asar unpack includes `github/lib/**` for `file://` workers.  
 4. **Phase N** (active): narrow package Node surface — see **`docs/security-phase-n.md`**.  
-   - N2 shell IPC + **N2.1 settings-view avatar cache IPC** (0.4.0) done.  
-   - Next: fuzzy-finder / tree-view fs / github residual.  
+   - N2 shell IPC + N2.1 avatar cache + **N2.2 fuzzy-finder path probes** done.  
+   - Next: tree-view bulk fs / github residual.  
 5. Phase S later: sandbox guest content; core editor sandbox blocked on in-process natives.
 
 ---

@@ -74,7 +74,8 @@ Docs: `docs/cpm-design.md`, `docs/cpm-cutover.md`, `docs/cpm-prebuilds.md`.
 | N1 github worker unpack | **Done** (live dogfood still useful) |
 | N2 shell IPC (openExternal / Finder / trash) | **Done** |
 | **N2.1 settings-view avatar cache → main IPC** | **Done in 0.4.0** |
-| N2 deferred: fuzzy-finder spawn, tree-view bulk fs | **Next** |
+| **N2.2 fuzzy-finder UI path probes → main IPC** | **Done** (Task crawl/rg stays in Task) |
+| N2 deferred: tree-view bulk fs | **Next** |
 | N3–N5 preload allowlist / guests / sandbox | Later |
 
 ---
@@ -87,7 +88,7 @@ Authoritative plan: **`docs/security-phase-n.md`**. N2 notes: **`docs/security-p
 
 Suggested order for remaining N2:
 
-1. **fuzzy-finder** — path crawl already uses `atom.Task`; audit residual `child_process.spawn` (rg) and `fs-plus` in the UI process  
+1. ~~**fuzzy-finder** UI probes~~ **done (N2.2)** — Task crawl + rg intentionally remain in Task  
 2. **tree-view** — bulk `fs-plus` for file ops (add/copy/move/delete UI); shell paths already on IPC  
 3. **github residual** — any remaining direct `electron` / net outside main workers  
 4. **N3** — document preload natives list; stop expanding package Node as a feature  

@@ -12,6 +12,9 @@
  * Phase N2.1: settings-view avatar cache FS → main IPC
  * (atom-settings-view-cache-*).
  *
+ * Phase N2.2: fuzzy-finder UI path probes → main IPC
+ * (atom-fs-path-kind-sync / atom-fs-realpath-sync via applicationDelegate).
+ *
  * Usage: node script/lib/patch-packages-remote-ipc.js [repoRoot]
  */
 
@@ -461,6 +464,56 @@ patchFile('node_modules/tree-view/lib/root-drag-and-drop.coffee', t => {
     "@processId ?= ipcRenderer.sendSync('atom-get-current-window-id-sync')"
   );
   return out;
+});
+
+// --- Phase N2.2: fuzzy-finder UI-process fs probes → main IPC -------------
+// Path crawl + ripgrep stay in atom.Task (load-paths-handler.js) — isolated.
+// UI process only needed kind/realpath probes; route those through main.
+
+function dropUnusedFsPlusImport(source) {
+  // Remove `const fs = require('fs-plus')` only when no remaining `fs.` use.
+  if (/\bfs\./.test(source.replace(/const fs = require\(['"]fs-plus['"]\)/, ''))) {
+    return source;
+  }
+  return source.replace(/const fs = require\(['"]fs-plus['"]\)\s*\n/, '');
+}
+
+patchFile('node_modules/fuzzy-finder/lib/fuzzy-finder-view.js', t => {
+  if (t.includes('applicationDelegate.isDirectorySync')) return t;
+  let out = t.replace(
+    /fs\.isDirectorySync\(uri\)/g,
+    'atom.applicationDelegate.isDirectorySync(uri)'
+  );
+  return dropUnusedFsPlusImport(out);
+});
+
+patchFile('node_modules/fuzzy-finder/lib/git-status-view.js', t => {
+  if (t.includes('applicationDelegate.isFileSync')) return t;
+  let out = t.replace(
+    /fs\.isFileSync\(filePath\)/g,
+    'atom.applicationDelegate.isFileSync(filePath)'
+  );
+  return dropUnusedFsPlusImport(out);
+});
+
+patchFile('node_modules/fuzzy-finder/lib/default-file-icons.js', t => {
+  if (t.includes('applicationDelegate.isSymbolicLinkSync')) return t;
+  // isReadmePath / extension helpers are pure path string checks on fs-plus;
+  // only isSymbolicLinkSync hits the disk — route that one.
+  let out = t.replace(
+    /fs\.isSymbolicLinkSync\(filePath\)/g,
+    'atom.applicationDelegate.isSymbolicLinkSync(filePath)'
+  );
+  return out;
+});
+
+patchFile('node_modules/fuzzy-finder/lib/path-loader.js', t => {
+  if (t.includes('applicationDelegate.realpathSync')) return t;
+  let out = t.replace(
+    /atom\.project\.getPaths\(\)\.map\(\(path\) => fs\.realpathSync\(path\)\)/,
+    `atom.project.getPaths().map((p) => atom.applicationDelegate.realpathSync(p) || p)`
+  );
+  return dropUnusedFsPlusImport(out);
 });
 
 // github package: direct shell.openExternal (not via remote)
