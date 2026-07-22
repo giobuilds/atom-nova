@@ -1,8 +1,9 @@
 # Security Phase N — narrow package Node surface
 
-**Status:** inventory + policy (started 2026-07-16)  
+**Status:** active epic (N0–N2 partial; N2.1 avatar cache in 0.4.0)  
 **Depends on:** Phase R (remote removal) and Phase I (contextIsolation + preload boot) — both done.  
-**Follows:** `docs/remote-ipc-inventory.md` §4 / §9.
+**Follows:** `docs/remote-ipc-inventory.md` §4 / §9.  
+**Handoff:** `GROK.md`
 
 ## Goal
 
@@ -106,6 +107,15 @@ For each hotspot package:
 4. Regression test (smoke + package-specific).
 
 Suggested order: **settings-view paths** → **fuzzy-finder spawn** → **tree-view fs** → **github residual electron**.
+
+| Item | Status |
+|------|--------|
+| settings-view shell.openExternal | Done (N2) |
+| settings-view avatar cache FS | **Done N2.1 (0.4.0)** — main IPC `atom-settings-view-cache-*` |
+| tree-view shell / trash / DND | Done (N2) |
+| fuzzy-finder Task + residual fs/spawn | **Next** |
+| tree-view bulk fs-plus | Later N2 |
+| github residual electron/net | Later N2 |
 
 ### N3 — Shrink preload default privilege
 

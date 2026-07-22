@@ -9,6 +9,9 @@
  * atom.applicationDelegate (main-process IPC trust boundary), and drop
  * residual electron.remote usage in tree-view cross-window DND.
  *
+ * Phase N2.1: settings-view avatar cache FS → main IPC
+ * (atom-settings-view-cache-*).
+ *
  * Usage: node script/lib/patch-packages-remote-ipc.js [repoRoot]
  */
 
@@ -84,7 +87,7 @@ patchFile('node_modules/settings-view/lib/uri-handler-panel.js', t => {
 // Registry + Install UI: atom.io is dead → Pulsar (also re-run after coffee transpile in script/build)
 require('./patch-settings-view-registry')(repoRoot);
 
-// atom-io-client: cache path IPC + search repository shape (registry URL patched above)
+// atom-io-client: cache path IPC + avatar cache via main (N2.1) + search shape
 patchFile('node_modules/settings-view/lib/atom-io-client.coffee', t => {
   let out = t;
 
@@ -93,6 +96,177 @@ patchFile('node_modules/settings-view/lib/atom-io-client.coffee', t => {
       /@cachePath \?= path\.join\(remote\.app\.getPath\('userData'\), 'Cache', 'settings-view'\)/,
       "@cachePath ?= path.join(require('electron').ipcRenderer.sendSync('atom-app-get-path-sync', 'userData'), 'Cache', 'settings-view')"
     );
+  }
+
+  // Phase N2.1: avatar cache FS → main-process IPC (confined under userData/Cache)
+  if (!out.includes('atom-settings-view-cache-ensure')) {
+    out = out.replace(
+      /^fs = require 'fs-plus'\npath = require 'path'\n\nglob = require 'glob'\nrequest = require 'request'\n/,
+      "path = require 'path'\n\nrequest = require 'request'\n"
+    );
+
+    const AVATAR_OLD = `  createAvatarCache: ->
+    fs.makeTree(@getCachePath())
+
+  avatarPath: (login) ->
+    path.join @getCachePath(), "#{login}-#{Date.now()}"
+
+  cachedAvatar: (login, callback) ->
+    glob @avatarGlob(login), (err, files) =>
+      return callback(err) if err
+      files.sort().reverse()
+      for imagePath in files
+        filename = path.basename(imagePath)
+        [..., createdOn] = filename.split('-')
+        if Date.now() - parseInt(createdOn) < @expiry
+          return callback(null, imagePath)
+      callback(null, null)
+
+  avatarGlob: (login) ->
+    path.join @getCachePath(), "#{login}-*([0-9])"
+
+  fetchAndCacheAvatar: (login, callback) ->
+    if not @online()
+      callback(null, null)
+    else
+      imagePath = @avatarPath login
+      requestObject = {
+        url: "https://avatars.githubusercontent.com/#{login}"
+        headers: {'User-Agent': navigator.userAgent}
+      }
+      request.head requestObject, (error, response, body) ->
+        if error? or response.statusCode isnt 200 or not response.headers['content-type'].startsWith('image/')
+          callback(error)
+        else
+          writeStream = fs.createWriteStream imagePath
+          writeStream.on 'finish', -> callback(null, imagePath)
+          writeStream.on 'error', (error) ->
+            writeStream.close()
+            try
+              fs.unlinkSync imagePath if fs.existsSync imagePath
+            callback(error)
+          request(requestObject).pipe(writeStream)
+
+  # The cache expiry doesn't need to be clever, or even compare dates, it just
+  # needs to always keep around the newest item, and that item only. The localStorage
+  # cache updates in place, so it doesn't need to be purged.
+
+  expireAvatarCache: ->
+    deleteAvatar = (child) =>
+      avatarPath = path.join(@getCachePath(), child)
+      fs.unlink avatarPath, (error) ->
+        if error and error.code isnt 'ENOENT' # Ignore cache paths that don't exist
+          console.warn("Error deleting avatar (#{error.code}): #{avatarPath}")
+
+    fs.readdir @getCachePath(), (error, _files) ->
+      _files ?= []
+      files = {}
+      for filename in _files
+        parts = filename.split('-')
+        stamp = parts.pop()
+        key = parts.join('-')
+        files[key] ?= []
+        files[key].push "#{key}-#{stamp}"
+
+      for key, children of files
+        children.sort()
+        children.pop() # keep
+        # Right now a bunch of clients might be instantiated at once, so
+        # we can just ignore attempts to unlink files that have already been removed
+        # - this should be fixed with a singleton client
+        children.forEach(deleteAvatar)
+
+  getCachePath: ->
+    @cachePath ?= path.join(require('electron').ipcRenderer.sendSync('atom-app-get-path-sync', 'userData'), 'Cache', 'settings-view')`;
+
+    const AVATAR_NEW = `  # Phase N2.1: avatar files only via main IPC (userData/Cache/settings-view).
+  createAvatarCache: ->
+    {ipcRenderer} = require 'electron'
+    ipcRenderer.invoke('atom-settings-view-cache-ensure').then (root) =>
+      @cachePath = root if root
+    .catch (error) ->
+      console.warn 'settings-view avatar cache ensure failed', error
+
+  avatarPath: (login) ->
+    path.join @getCachePath(), "#{login}-#{Date.now()}"
+
+  cachedAvatar: (login, callback) ->
+    {ipcRenderer} = require 'electron'
+    root = @getCachePath()
+    escaped = login.replace(/[.*+?^\${}()|[\\]\\\\]/g, '\\\\\$&')
+    pattern = new RegExp("^#{escaped}-(\\\\d+)$")
+    ipcRenderer.invoke('atom-settings-view-cache-list').then (names) =>
+      files = (names or [])
+        .filter (name) -> pattern.test(name)
+        .map (name) -> path.join(root, name)
+      files.sort().reverse()
+      for imagePath in files
+        filename = path.basename(imagePath)
+        [..., createdOn] = filename.split('-')
+        if Date.now() - parseInt(createdOn) < @expiry
+          return callback(null, imagePath)
+      callback(null, null)
+    .catch (err) ->
+      callback(err)
+
+  fetchAndCacheAvatar: (login, callback) ->
+    if not @online()
+      callback(null, null)
+    else
+      basename = "#{login}-#{Date.now()}"
+      imagePath = path.join @getCachePath(), basename
+      requestObject = {
+        url: "https://avatars.githubusercontent.com/#{login}"
+        headers: {'User-Agent': navigator.userAgent}
+        encoding: null
+      }
+      {ipcRenderer} = require 'electron'
+      request requestObject, (error, response, body) ->
+        if error? or response.statusCode isnt 200 or not response.headers['content-type']?.startsWith('image/')
+          callback(error)
+        else
+          ipcRenderer.invoke('atom-settings-view-cache-write', basename, body).then (result) ->
+            if result?.ok
+              callback(null, result.path or imagePath)
+            else
+              callback(new Error(result?.error or 'cache-write-failed'))
+          .catch (err) ->
+            callback(err)
+
+  # The cache expiry doesn't need to be clever, or even compare dates, it just
+  # needs to always keep around the newest item, and that item only. The localStorage
+  # cache updates in place, so it doesn't need to be purged.
+
+  expireAvatarCache: ->
+    {ipcRenderer} = require 'electron'
+    ipcRenderer.invoke('atom-settings-view-cache-list').then (names) ->
+      files = {}
+      for filename in (names or [])
+        parts = filename.split('-')
+        stamp = parts.pop()
+        key = parts.join('-')
+        files[key] ?= []
+        files[key].push "#{key}-#{stamp}"
+
+      for key, children of files
+        children.sort()
+        children.pop() # keep newest
+        for child in children
+          ipcRenderer.invoke('atom-settings-view-cache-unlink', child).catch (error) ->
+            console.warn("Error deleting avatar: #{child}", error)
+    .catch (error) ->
+      console.warn 'settings-view avatar cache list failed', error
+
+  getCachePath: ->
+    @cachePath ?= path.join(require('electron').ipcRenderer.sendSync('atom-app-get-path-sync', 'userData'), 'Cache', 'settings-view')`;
+
+    if (out.includes(AVATAR_OLD)) {
+      out = out.replace(AVATAR_OLD, AVATAR_NEW);
+    } else {
+      console.warn(
+        'settings-view atom-io-client: avatar block did not match; N2.1 cache IPC not applied'
+      );
+    }
   }
 
   // repository may be a string URL on some payloads; settings-view expected .url
